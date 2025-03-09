@@ -4,13 +4,14 @@ let filteredData = [];
 const itemsPerPage = 10; // 每页显示数据数量
 let currentPage = 1;
 let chartInstance = null;
+let unsubscribe = null; // Firebase实时监听取消函数
 
 // DOM元素加载完成后执行
 document.addEventListener('DOMContentLoaded', () => {
     // 初始化日期显示
     updateCurrentDate();
     
-    // 加载本地存储数据
+    // 加载Firebase数据
     loadData();
     
     // 初始化事件监听
@@ -25,12 +26,11 @@ function updateCurrentDate() {
     dateDisplay.textContent = now.toLocaleDateString('zh-CN', options);
 }
 
-// 加载本地存储数据
+// 加载Firebase数据
 function loadData() {
-    const savedData = localStorage.getItem('coffeeBeansData');
-    
-    if (savedData) {
-        salesData = JSON.parse(savedData);
+    // 设置实时数据监听
+    unsubscribe = setupRealtimeListener(data => {
+        salesData = data;
         filteredData = [...salesData];
         
         // 更新统计信息和图表
@@ -39,14 +39,20 @@ function loadData() {
         renderTable();
         renderMonthlyData();
         updateExportYearOptions();
-    } else {
-        showNotification('没有找到保存的数据，请添加新数据', 'error');
-    }
+    });
+    
+    // 如果初始加载没有数据，显示提示信息
+    setTimeout(() => {
+        if (salesData.length === 0) {
+            showNotification('没有找到数据，请添加新数据', 'info');
+        }
+    }, 2000);
 }
 
-// 保存数据到本地存储
+// 保存数据到Firebase (不再需要，由各个操作函数直接处理)
 function saveData() {
-    localStorage.setItem('coffeeBeansData', JSON.stringify(salesData));
+    // 此函数保留但空置，以避免修改其他调用此函数的地方
+    console.log('数据自动保存到Firebase');
 }
 
 // 初始化事件监听
@@ -164,28 +170,35 @@ function handleFormSubmit(e) {
     }
     
     // 检查是否已有该日期的数据
-    const existingEntryIndex = salesData.findIndex(item => item.date === date);
+    const existingEntry = salesData.find(item => item.date === date);
     
-    if (existingEntryIndex >= 0) {
+    if (existingEntry) {
         // 更新现有数据
         showConfirmDialog(
             '数据已存在',
             `${formatDate(date)} 的数据已存在，是否覆盖？`,
-            () => {
-                salesData[existingEntryIndex] = { date, wechat, samples, sales };
-                saveData();
-                resetForm();
-                refreshData();
-                showNotification('数据更新成功');
+            async () => {
+                // 使用Firebase更新记录
+                const success = await updateSalesRecord(existingEntry.id, { date, wechat, samples, sales });
+                if (success) {
+                    resetForm();
+                    showNotification('数据更新成功');
+                } else {
+                    showNotification('数据更新失败，请重试', 'error');
+                }
             }
         );
     } else {
-        // 添加新数据
-        salesData.push({ date, wechat, samples, sales });
-        saveData();
-        resetForm();
-        refreshData();
-        showNotification('数据添加成功');
+        // 添加新数据到Firebase
+        addSalesRecord({ date, wechat, samples, sales })
+            .then(success => {
+                if (success) {
+                    resetForm();
+                    showNotification('数据添加成功');
+                } else {
+                    showNotification('数据添加失败，请重试', 'error');
+                }
+            });
     }
 }
 
@@ -300,54 +313,54 @@ function updateTrendDisplay(elementId, trendValue) {
 
 // 渲染销售数据表格
 function renderTable() {
-    const tableBody = document.getElementById('sales-data');
+    const tableBody = document.querySelector('.data-table tbody');
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
+    
+    // 清空表格
     tableBody.innerHTML = '';
     
-    if (filteredData.length === 0) {
-        const emptyRow = document.createElement('tr');
-        emptyRow.innerHTML = `<td colspan="5" style="text-align: center;">暂无数据</td>`;
-        tableBody.appendChild(emptyRow);
-        
-        // 更新分页信息
-        updatePagination(0);
-        return;
-    }
-    
-    // 排序数据 (默认按日期降序)
-    const sortedData = [...filteredData].sort((a, b) => {
-        return new Date(b.date) - new Date(a.date);
-    });
-    
-    // 计算分页
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const paginatedData = sortedData.slice(startIndex, endIndex);
-    
-    // 渲染数据行
+    // 添加数据行
     paginatedData.forEach(item => {
         const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${formatDate(item.date)}</td>
-            <td>${item.wechat}</td>
-            <td>${item.samples}</td>
-            <td>¥${item.sales.toLocaleString('zh-CN')}</td>
-            <td>
-                <button class="btn btn-danger btn-sm delete-btn" data-date="${item.date}">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>
-        `;
+        row.dataset.id = item.id; // 保存记录的Firebase ID用于删除和更新
+        
+        // 创建表格单元格
+        const dateCell = document.createElement('td');
+        dateCell.textContent = formatDate(item.date);
+        
+        const wechatCell = document.createElement('td');
+        wechatCell.textContent = item.wechat;
+        
+        const samplesCell = document.createElement('td');
+        samplesCell.textContent = item.samples;
+        
+        const salesCell = document.createElement('td');
+        salesCell.textContent = `¥${item.sales.toFixed(2)}`;
+        
+        const actionsCell = document.createElement('td');
+        actionsCell.className = 'actions';
+        
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'delete-btn';
+        deleteButton.innerHTML = '<i class="fas fa-trash"></i>';
+        deleteButton.addEventListener('click', handleDelete);
+        
+        actionsCell.appendChild(deleteButton);
+        
+        // 将单元格添加到行
+        row.appendChild(dateCell);
+        row.appendChild(wechatCell);
+        row.appendChild(samplesCell);
+        row.appendChild(salesCell);
+        row.appendChild(actionsCell);
+        
+        // 将行添加到表格
         tableBody.appendChild(row);
     });
     
-    // 添加删除按钮事件监听
-    const deleteButtons = document.querySelectorAll('.delete-btn');
-    deleteButtons.forEach(btn => {
-        btn.addEventListener('click', handleDelete);
-    });
-    
     // 更新分页信息
-    updatePagination(sortedData.length);
+    updatePagination(filteredData.length);
 }
 
 // 更新分页信息
@@ -374,16 +387,20 @@ function changePage(direction) {
 
 // 处理删除操作
 function handleDelete(e) {
-    const date = e.currentTarget.getAttribute('data-date');
+    const recordId = e.target.closest('tr').dataset.id;
+    const date = e.target.closest('tr').cells[0].textContent;
     
     showConfirmDialog(
-        '删除数据',
-        `确定要删除 ${formatDate(date)} 的数据吗？`,
-        () => {
-            salesData = salesData.filter(item => item.date !== date);
-            saveData();
-            refreshData();
-            showNotification('数据已删除');
+        '确认删除',
+        `确定要删除 ${date} 的销售记录吗？`,
+        async () => {
+            // 使用Firebase删除记录
+            const success = await deleteSalesRecord(recordId);
+            if (success) {
+                showNotification('记录已成功删除');
+            } else {
+                showNotification('删除记录失败，请重试', 'error');
+            }
         }
     );
 }
@@ -935,49 +952,112 @@ function formatDate(dateString) {
 // 填充演示数据
 function fillDemoData() {
     showConfirmDialog(
-        '填充演示数据',
-        '确定要添加演示数据吗？这将不会覆盖现有数据。',
-        () => {
-            // 生成过去90天的随机数据
+        '填充示例数据',
+        '确定要填充示例数据吗？这将添加30条随机销售记录。',
+        async () => {
+            // 生成随机销售数据
+            const demoData = [];
             const today = new Date();
-            for (let i = 1; i <= 90; i++) {
-                const date = new Date();
-                date.setDate(today.getDate() - i);
-                
-                // 随机生成数据
-                const wechat = Math.floor(Math.random() * 20) + 1;  // 1-20
-                const samples = Math.floor(Math.random() * wechat * 0.7);  // 0-70% of wechat
-                const salesPerSample = Math.floor(Math.random() * 300) + 100;  // 100-400
-                const sales = samples * salesPerSample;
-                
-                const dateString = date.toISOString().split('T')[0];
-                
-                // 检查是否已存在该日期的数据
-                if (!salesData.some(item => item.date === dateString)) {
-                    salesData.push({
-                        date: dateString,
-                        wechat,
-                        samples,
-                        sales
-                    });
-                }
+            
+            // 先取消监听避免频繁更新
+            if (unsubscribe) {
+                unsubscribe();
             }
             
-            saveData();
-            refreshData();
-            showNotification('演示数据已添加');
+            try {
+                // 使用批量写入提高性能
+                const batch = firebase.firestore().batch();
+                
+                for (let i = 0; i < 30; i++) {
+                    const date = new Date(today);
+                    date.setDate(date.getDate() - i);
+                    const dateStr = date.toISOString().split('T')[0];
+                    
+                    const wechat = Math.floor(Math.random() * 20) + 5;
+                    const samples = Math.floor(Math.random() * 10) + 1;
+                    const sales = Math.floor(Math.random() * 3000) + 500;
+                    
+                    const demoEntry = {
+                        date: dateStr,
+                        wechat: wechat,
+                        samples: samples,
+                        sales: sales
+                    };
+                    
+                    demoData.push(demoEntry);
+                    
+                    // 添加到批处理
+                    const newDocRef = salesCollection.doc();
+                    batch.set(newDocRef, demoEntry);
+                }
+                
+                // 提交批处理
+                await batch.commit();
+                
+                showNotification('示例数据已添加成功');
+                
+                // 重新加载数据
+                loadData();
+            } catch (error) {
+                console.error('添加示例数据时发生错误:', error);
+                showNotification('添加示例数据失败，请重试', 'error');
+                
+                // 重新监听
+                loadData();
+            }
         }
     );
 }
 
 // 清空所有数据
 function clearAllData() {
-    salesData = [];
-    saveData();
-    refreshData();
-    showNotification('所有数据已清空');
-    hideConfirmDialog();
+    showConfirmDialog(
+        '清空所有数据',
+        '确定要删除所有数据吗？此操作不可恢复！',
+        async () => {
+            // 先取消监听避免频繁更新
+            if (unsubscribe) {
+                unsubscribe();
+            }
+            
+            // 批量删除所有数据
+            try {
+                const batch = firebase.firestore().batch();
+                const snapshot = await salesCollection.get();
+                
+                snapshot.docs.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                
+                await batch.commit();
+                
+                // 清空本地数据
+                salesData = [];
+                filteredData = [];
+                
+                // 刷新UI
+                refreshData();
+                showNotification('所有数据已清空');
+                
+                // 重新监听
+                loadData();
+            } catch (error) {
+                console.error('清空数据时发生错误:', error);
+                showNotification('清空数据失败，请重试', 'error');
+                
+                // 确保监听被重新设置
+                loadData();
+            }
+        }
+    );
 }
+
+// 页面卸载时取消监听
+window.addEventListener('beforeunload', () => {
+    if (unsubscribe) {
+        unsubscribe();
+    }
+});
 
 // 显示确认对话框
 function showConfirmDialog(title, message, confirmCallback) {
@@ -1030,4 +1110,119 @@ function showNotification(message, type = 'success') {
     setTimeout(() => {
         notification.classList.remove('show');
     }, 3000);
+}
+
+// 备份Firebase数据
+async function backupFirebaseData() {
+    try {
+        // 获取所有数据的快照
+        const snapshot = await salesCollection.get();
+        const backupData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        
+        if (backupData.length === 0) {
+            showNotification('没有数据可备份', 'error');
+            return;
+        }
+        
+        // 将数据转换为JSON并下载
+        const dataStr = JSON.stringify(backupData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        // 创建下载链接
+        const downloadLink = document.createElement('a');
+        downloadLink.href = url;
+        
+        // 创建文件名: coffee-sales-backup-YYYY-MM-DD.json
+        const today = new Date();
+        const dateString = today.toISOString().split('T')[0];
+        downloadLink.download = `coffee-sales-backup-${dateString}.json`;
+        
+        // 模拟点击下载
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        
+        showNotification('数据备份成功');
+    } catch (error) {
+        console.error('备份数据时发生错误:', error);
+        showNotification('备份数据失败，请重试', 'error');
+    }
+}
+
+// 触发文件选择对话框
+function restoreFirebaseData() {
+    document.getElementById('restore-file').click();
+}
+
+// 处理选择的备份文件
+async function handleRestoreFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // 验证文件类型
+    if (file.type !== 'application/json') {
+        showNotification('请选择JSON格式的备份文件', 'error');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            // 解析备份文件
+            const backupData = JSON.parse(e.target.result);
+            
+            // 确认恢复
+            showConfirmDialog(
+                '确认恢复数据',
+                `将恢复 ${backupData.length} 条销售记录，这将覆盖当前数据。确定继续吗？`,
+                async () => {
+                    // 先取消监听避免频繁更新
+                    if (unsubscribe) {
+                        unsubscribe();
+                    }
+                    
+                    try {
+                        // 删除当前所有数据
+                        const currentData = await salesCollection.get();
+                        const deletePromises = currentData.docs.map(doc => doc.ref.delete());
+                        await Promise.all(deletePromises);
+                        
+                        // 恢复备份数据
+                        const batch = firebase.firestore().batch();
+                        
+                        backupData.forEach(item => {
+                            const docId = item.id;
+                            const { id, ...data } = item; // 剔除id字段
+                            batch.set(salesCollection.doc(docId), data);
+                        });
+                        
+                        await batch.commit();
+                        
+                        showNotification('数据恢复成功');
+                        
+                        // 重新加载数据
+                        loadData();
+                    } catch (error) {
+                        console.error('恢复数据时发生错误:', error);
+                        showNotification('恢复数据失败，请重试', 'error');
+                        
+                        // 重新监听
+                        loadData();
+                    }
+                }
+            );
+        } catch (error) {
+            console.error('读取备份文件时发生错误:', error);
+            showNotification('无效的备份文件格式', 'error');
+        }
+    };
+    
+    reader.readAsText(file);
+    
+    // 重置文件输入框，以便可以选择相同文件
+    event.target.value = '';
 } 
