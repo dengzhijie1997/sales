@@ -1,24 +1,24 @@
 // 缓存名称
-const CACHE_NAME = 'coffee-sales-cache-v3';
+const CACHE_NAME = 'coffee-sales-cache-v5';
 
 // 需要缓存的资源
 const urlsToCache = [
-  '/sales/',
-  '/sales/index.html',
-  '/sales/styles.css',
-  '/sales/app.js',
-  '/sales/firebase-config.js',
-  '/sales/manifest.json',
-  '/sales/icons/icon-72x72.png',
-  '/sales/icons/icon-96x96.png',
-  '/sales/icons/icon-128x128.png',
-  '/sales/icons/icon-144x144.png',
-  '/sales/icons/icon-152x152.png',
-  '/sales/icons/icon-192x192.png',
-  '/sales/icons/icon-384x384.png',
-  '/sales/icons/icon-512x512.png',
-  '/sales/clear-cache.js',
-  '/sales/icon-test.html',
+  './',
+  './index.html',
+  './styles.css',
+  './app.js',
+  './firebase-config.js',
+  './manifest.json',
+  './icon-72x72.png',
+  './icon-96x96.png',
+  './icon-128x128.png',
+  './icon-144x144.png',
+  './icon-152x152.png',
+  './icon-192x192.png',
+  './icon-384x384.png',
+  './icon-512x512.png',
+  './clear-cache.js',
+  './icon-test.html',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
   'https://cdn.jsdelivr.net/npm/chart.js'
 ];

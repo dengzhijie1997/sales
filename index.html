@@ -14,24 +14,24 @@
     <script src="firebase-config.js"></script>
     
     <!-- PWA相关标签 -->
-    <link rel="manifest" href="/sales/manifest.json">
+    <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#8b5a2b">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="咖啡销售">
     
     <!-- Apple Touch Icons -->
-    <link rel="apple-touch-icon" href="/sales/icons/icon-152x152.png">
-    <link rel="apple-touch-icon" sizes="152x152" href="/sales/icons/icon-152x152.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/sales/icons/icon-192x192.png">
-    <link rel="apple-touch-icon" sizes="167x167" href="/sales/icons/icon-152x152.png">
+    <link rel="apple-touch-icon" href="./icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="./icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="./icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="./icon-152x152.png">
     
     <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="512x512" href="/sales/icons/icon-512x512.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="/sales/icons/icon-192x192.png">
-    <link rel="icon" type="image/png" sizes="96x96" href="/sales/icons/icon-96x96.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/sales/icons/icon-72x72.png">
-    <link rel="shortcut icon" href="/sales/icons/icon-72x72.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="./icon-512x512.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="./icon-96x96.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="./icon-72x72.png">
+    <link rel="shortcut icon" href="./icon-72x72.png">
 </head>
 <body>
     <div class="app-container">
@@ -348,7 +348,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sales/sw.js')
+                navigator.serviceWorker.register('./sw.js')
                     .then(registration => {
                         console.log('Service Worker 注册成功，作用域: ', registration.scope);
                     })
