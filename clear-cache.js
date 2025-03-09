@@ -1,7 +1,11 @@
+/**
+ * 清除PWA缓存和服务工作器
+ * 这个脚本用于帮助用户解决缓存问题
+ */
+
 // 清除PWA缓存
 function clearPWACache() {
     if ('caches' in window) {
-        // 清除所有缓存
         caches.keys().then(function(cacheNames) {
             return Promise.all(
                 cacheNames.map(function(cacheName) {
@@ -22,40 +26,59 @@ function clearPWACache() {
     }
 }
 
-// 显示通知
-function showPageNotification(message, type) {
-    const notification = document.createElement('div');
-    notification.style.position = 'fixed';
-    notification.style.bottom = '20px';
-    notification.style.left = '50%';
-    notification.style.transform = 'translateX(-50%)';
-    notification.style.backgroundColor = type === 'error' ? '#f44336' : 
-                                        type === 'warning' ? '#ff9800' : '#4CAF50';
-    notification.style.color = 'white';
-    notification.style.padding = '10px 20px';
-    notification.style.borderRadius = '4px';
-    notification.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
-    notification.style.zIndex = '10000';
-    notification.textContent = message;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.style.opacity = '0';
-        notification.style.transition = 'opacity 0.5s';
+// 计算缓存大小
+async function calculateCacheSize() {
+    try {
+        const cacheNames = await caches.keys();
+        let totalSize = 0;
         
-        setTimeout(() => {
-            document.body.removeChild(notification);
-        }, 500);
-    }, 3000);
+        for (let cacheName of cacheNames) {
+            const cache = await caches.open(cacheName);
+            const requests = await cache.keys();
+            
+            for (let request of requests) {
+                const response = await cache.match(request);
+                const blob = await response.blob();
+                totalSize += blob.size;
+            }
+        }
+        
+        // 转换为可读格式
+        let sizeDisplay = '';
+        if (totalSize < 1024) {
+            sizeDisplay = totalSize + ' B';
+        } else if (totalSize < 1024 * 1024) {
+            sizeDisplay = (totalSize / 1024).toFixed(2) + ' KB';
+        } else {
+            sizeDisplay = (totalSize / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+        
+        // 更新显示
+        const cacheSizeElement = document.getElementById('cache-size');
+        if (cacheSizeElement) {
+            cacheSizeElement.textContent = sizeDisplay;
+        }
+        
+        return sizeDisplay;
+    } catch (error) {
+        console.error('计算缓存大小时出错:', error);
+        return '计算失败';
+    }
 }
 
-// 为已有的通知函数提供备用
+// 页面加载时计算缓存大小
+window.addEventListener('load', () => {
+    calculateCacheSize();
+});
+
+// 显示通知
 function showNotification(message, type) {
+    // 如果主应用中已经有showNotification函数，则使用主应用的函数
     if (typeof window.showNotification === 'function') {
         window.showNotification(message, type);
     } else {
-        showPageNotification(message, type);
+        // 否则使用简单的alert
+        alert(message);
     }
 }
 

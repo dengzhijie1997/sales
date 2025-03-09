@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase 连接测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        h1 {
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        
+        .card {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .status {
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 3px;
+            display: inline-block;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        button.secondary {
+            background: #2196F3;
+        }
+        
+        button.secondary:hover {
+            background: #0b7dda;
+        }
+        
+        button.danger {
+            background: #f44336;
+        }
+        
+        button.danger:hover {
+            background: #d32f2f;
+        }
+        
+        .logs {
+            height: 200px;
+            overflow-y: auto;
+            background: #333;
+            color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin-top: 20px;
+        }
+        
+        .logs p {
+            margin: 0;
+            padding: 2px 0;
+        }
+        
+        .logs .error {
+            color: #ff8080;
+            background: transparent;
+        }
+        
+        .logs .success {
+            color: #80ff80;
+            background: transparent;
+        }
+        
+        .logs .info {
+            color: #80ccff;
+            background: transparent;
+        }
+    </style>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
+</head>
+<body>
+    <h1>Firebase 连接测试工具</h1>
+    
+    <div class="card">
+        <h2>Firebase 状态</h2>
+        <p>SDK 加载状态: <span id="firebase-sdk-status" class="status">检查中...</span></p>
+        <p>初始化状态: <span id="firebase-init-status" class="status">检查中...</span></p>
+        <p>Firestore 连接: <span id="firestore-status" class="status">检查中...</span></p>
+    </div>
+    
+    <div class="card">
+        <h2>配置信息</h2>
+        <p>使用的配置文件: <code>firebase-config.js</code></p>
+        <div id="config-details">
+            <p>配置详情将在检查完成后显示</p>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>测试操作</h2>
+        <button id="test-connection">测试连接</button>
+        <button id="test-read" class="secondary">读取数据</button>
+        <button id="test-write" class="secondary">写入测试数据</button>
+        <button id="clear-test-data" class="danger">清除测试数据</button>
+    </div>
+    
+    <div class="logs" id="logs">
+        <p class="info">准备就绪，等待操作...</p>
+    </div>
+    
+    <div class="card">
+        <h2>返回应用</h2>
+        <p><a href="index.html">返回主应用</a></p>
+    </div>
+    
+    <script src="firebase-config.js"></script>
+    <script>
+        // 添加日志
+        function log(message, type = 'info') {
+            const logElement = document.getElementById('logs');
+            const logEntry = document.createElement('p');
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logEntry.className = type;
+            logElement.appendChild(logEntry);
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        // 更新状态显示
+        function updateStatus(id, status, message) {
+            const element = document.getElementById(id);
+            element.textContent = message;
+            element.className = 'status ' + status;
+        }
+        
+        // 检查 Firebase SDK 是否加载
+        function checkFirebaseSDK() {
+            if (typeof firebase !== 'undefined') {
+                updateStatus('firebase-sdk-status', 'success', '已加载');
+                log('Firebase SDK 已成功加载', 'success');
+                return true;
+            } else {
+                updateStatus('firebase-sdk-status', 'error', '未加载');
+                log('Firebase SDK 未加载，请检查网络连接和脚本引用', 'error');
+                return false;
+            }
+        }
+        
+        // 检查 Firebase 是否初始化
+        function checkFirebaseInit() {
+            if (typeof firebase !== 'undefined') {
+                if (firebase.apps && firebase.apps.length > 0) {
+                    updateStatus('firebase-init-status', 'success', '已初始化');
+                    log('Firebase 已成功初始化', 'success');
+                    return true;
+                } else {
+                    updateStatus('firebase-init-status', 'error', '未初始化');
+                    log('Firebase 未初始化，请检查 firebase-config.js 文件', 'error');
+                    return false;
+                }
+            } else {
+                updateStatus('firebase-init-status', 'error', '未初始化');
+                return false;
+            }
+        }
+        
+        // 检查 Firestore 连接
+        function checkFirestore() {
+            if (checkFirebaseInit()) {
+                try {
+                    const db = firebase.firestore();
+                    if (db) {
+                        updateStatus('firestore-status', 'success', '已连接');
+                        log('Firestore 数据库已连接', 'success');
+                        return true;
+                    } else {
+                        updateStatus('firestore-status', 'error', '未连接');
+                        log('Firestore 数据库未连接', 'error');
+                        return false;
+                    }
+                } catch (error) {
+                    updateStatus('firestore-status', 'error', '连接错误');
+                    log('Firestore 连接错误: ' + error.message, 'error');
+                    return false;
+                }
+            } else {
+                updateStatus('firestore-status', 'error', '未连接');
+                return false;
+            }
+        }
+        
+        // 显示配置信息
+        function showConfigInfo() {
+            if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+                const config = firebase.apps[0].options;
+                const configDetails = document.getElementById('config-details');
+                
+                // 创建配置信息的安全版本（隐藏敏感信息）
+                const safeConfig = {
+                    apiKey: config.apiKey ? '***' + config.apiKey.substr(-4) : undefined,
+                    authDomain: config.authDomain,
+                    projectId: config.projectId,
+                    storageBucket: config.storageBucket,
+                    messagingSenderId: config.messagingSenderId ? '***' : undefined,
+                    appId: config.appId ? '***' : undefined,
+                    measurementId: config.measurementId
+                };
+                
+                const configHTML = `
+                    <pre>${JSON.stringify(safeConfig, null, 2)}</pre>
+                    <p>项目 ID: ${config.projectId}</p>
+                `;
+                
+                configDetails.innerHTML = configHTML;
+                log('已显示配置信息', 'info');
+            } else {
+                document.getElementById('config-details').innerHTML = '<p>无法获取配置信息，Firebase 未初始化</p>';
+                log('无法获取配置信息，Firebase 未初始化', 'error');
+            }
+        }
+        
+        // 测试连接
+        async function testConnection() {
+            log('测试 Firebase 连接...', 'info');
+            
+            if (!checkFirebaseSDK() || !checkFirebaseInit()) {
+                return;
+            }
+            
+            try {
+                const testDoc = firebase.firestore().collection('_test_').doc('connection');
+                await testDoc.set({ timestamp: new Date().toISOString() });
+                log('连接测试成功！已写入测试数据', 'success');
+                try {
+                    await testDoc.delete();
+                    log('已清理测试数据', 'success');
+                } catch (e) {
+                    log('清理测试数据时出错: ' + e.message, 'error');
+                }
+            } catch (error) {
+                log('连接测试失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 读取数据测试
+        async function testRead() {
+            log('测试读取数据...', 'info');
+            
+            if (!checkFirebaseSDK() || !checkFirebaseInit()) {
+                return;
+            }
+            
+            try {
+                const snapshot = await firebase.firestore().collection('salesData').limit(5).get();
+                log(`读取测试成功！找到 ${snapshot.size} 条数据记录`, 'success');
+                
+                if (snapshot.size > 0) {
+                    snapshot.forEach(doc => {
+                        log(`数据 ID: ${doc.id}, 日期: ${doc.data().date}`, 'info');
+                    });
+                } else {
+                    log('未找到任何数据记录', 'warning');
+                }
+            } catch (error) {
+                log('读取测试失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 写入测试数据
+        async function testWrite() {
+            log('测试写入数据...', 'info');
+            
+            if (!checkFirebaseSDK() || !checkFirebaseInit()) {
+                return;
+            }
+            
+            try {
+                const testData = {
+                    date: new Date().toISOString().split('T')[0],
+                    wechat: 1,
+                    samples: 1,
+                    sales: 1,
+                    notes: '这是一条测试数据，可以安全删除',
+                    created_at: new Date().toISOString(),
+                    is_test: true
+                };
+                
+                const docRef = await firebase.firestore().collection('salesData').add(testData);
+                log(`写入测试成功！数据 ID: ${docRef.id}`, 'success');
+            } catch (error) {
+                log('写入测试失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 清除测试数据
+        async function clearTestData() {
+            log('清除测试数据...', 'info');
+            
+            if (!checkFirebaseSDK() || !checkFirebaseInit()) {
+                return;
+            }
+            
+            try {
+                const snapshot = await firebase.firestore()
+                    .collection('salesData')
+                    .where('is_test', '==', true)
+                    .get();
+                
+                if (snapshot.size === 0) {
+                    log('未找到测试数据', 'warning');
+                    return;
+                }
+                
+                const batch = firebase.firestore().batch();
+                snapshot.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+                
+                await batch.commit();
+                log(`已成功清除 ${snapshot.size} 条测试数据`, 'success');
+            } catch (error) {
+                log('清除测试数据失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 检查 Firebase 状态
+            setTimeout(() => {
+                checkFirebaseSDK();
+                checkFirebaseInit();
+                checkFirestore();
+                showConfigInfo();
+            }, 1000);
+            
+            // 绑定按钮事件
+            document.getElementById('test-connection').addEventListener('click', testConnection);
+            document.getElementById('test-read').addEventListener('click', testRead);
+            document.getElementById('test-write').addEventListener('click', testWrite);
+            document.getElementById('clear-test-data').addEventListener('click', clearTestData);
+        });
+    </script>
+</body>
+</html> 

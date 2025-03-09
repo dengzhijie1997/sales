@@ -172,37 +172,200 @@ function updateCurrentDate() {
 
 // 加载Firebase数据
 function loadData() {
-    // 设置实时数据监听
-    unsubscribe = setupRealtimeListener(data => {
-        salesData = data;
-        filteredData = [...salesData];
-        
-        // 更新统计信息和图表
+    console.log('开始加载数据...');
+    
+    // 尝试使用 Firebase 加载数据
+    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+        try {
+            console.log('尝试从 Firebase 加载数据...');
+            
+            // 清除之前的监听
+            if (typeof unsubscribe === 'function') {
+                unsubscribe();
+                console.log('已清除之前的数据监听');
+            }
+            
+            // 设置新的数据监听
+            unsubscribe = firebase.firestore().collection('salesData')
+                .orderBy('date', 'desc')
+                .onSnapshot(
+                    // 成功处理数据
+                    (snapshot) => {
+                        const data = snapshot.docs.map(doc => ({
+                            id: doc.id,
+                            ...doc.data()
+                        }));
+                        console.log(`从 Firebase 加载了 ${data.length} 条数据`);
+                        
+                        // 更新本地数据
+                        salesData = data;
+                        filteredData = [...salesData];
+                        
+                        // 更新 UI
+                        updateUI();
+                        
+                        // 备份到本地存储
+                        try {
+                            localStorage.setItem('salesData', JSON.stringify(salesData));
+                            console.log('数据已备份到本地存储');
+                        } catch (err) {
+                            console.error('备份数据到本地存储时出错:', err);
+                        }
+                    },
+                    // 处理错误
+                    (error) => {
+                        console.error('监听 Firebase 数据时出错:', error);
+                        alert('连接 Firebase 数据库时出错，将尝试从本地存储加载数据');
+                        loadFromLocalStorage();
+                    }
+                );
+            
+            // 检查是否有数据
+            setTimeout(() => {
+                if (salesData.length === 0) {
+                    console.log('Firebase 中没有数据');
+                    updateUI();
+                }
+            }, 2000);
+            
+            return;
+        } catch (error) {
+            console.error('设置 Firebase 数据监听时出错:', error);
+            alert('设置数据监听时出错: ' + error.message + '，将尝试从本地存储加载数据');
+        }
+    } else {
+        console.log('Firebase 未初始化或不可用，将从本地存储加载数据');
+    }
+    
+    // 如果 Firebase 不可用或出错，从本地存储加载
+    loadFromLocalStorage();
+}
+
+// 从本地存储加载数据
+function loadFromLocalStorage() {
+    console.log('从本地存储加载数据...');
+    try {
+        const savedData = localStorage.getItem('salesData');
+        if (savedData) {
+            salesData = JSON.parse(savedData);
+            console.log(`从本地存储加载了 ${salesData.length} 条数据`);
+            
+            // 确保所有记录都有 ID
+            salesData = salesData.map(item => {
+                if (!item.id) {
+                    item.id = 'local_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+                }
+                return item;
+            });
+            
+            filteredData = [...salesData];
+            updateUI();
+        } else {
+            console.log('本地存储中没有数据');
+            salesData = [];
+            filteredData = [];
+            updateUI();
+        }
+    } catch (error) {
+        console.error('从本地存储加载数据时出错:', error);
+        salesData = [];
+        filteredData = [];
+        updateUI();
+    }
+}
+
+// 更新 UI
+function updateUI() {
+    try {
         updateStatistics();
         updateChart();
         renderTable();
-        renderMonthlyData();
-        updateExportYearOptions();
-        
-        // 更新今日概况
-        updateTodaySummary();
-        
-        // 更新最近数据
         renderRecentData();
-    });
-    
-    // 如果初始加载没有数据，显示提示信息
-    setTimeout(() => {
-        if (salesData.length === 0) {
-            showNotification('没有找到数据，请添加新数据', 'info');
+        updateTodaySummary();
+        updateGreeting();
+        
+        if (typeof renderMonthlyData === 'function') {
+            renderMonthlyData();
         }
-    }, 2000);
+        
+        if (typeof updateExportYearOptions === 'function') {
+            updateExportYearOptions();
+        }
+    } catch (error) {
+        console.error('更新 UI 时出错:', error);
+    }
 }
 
-// 保存数据到Firebase (不再需要，由各个操作函数直接处理)
-function saveData() {
-    // 此函数保留但空置，以避免修改其他调用此函数的地方
-    console.log('数据自动保存到Firebase');
+// 保存数据
+function saveData(newItem, isNewItem = true) {
+    console.log('保存数据...');
+    
+    try {
+        // 如果是新项目，添加到本地数组
+        if (isNewItem) {
+            salesData.push(newItem);
+        }
+        
+        // 更新过滤后的数据
+        filteredData = [...salesData];
+        
+        // 更新 UI
+        updateUI();
+        
+        // 保存到本地存储
+        try {
+            localStorage.setItem('salesData', JSON.stringify(salesData));
+            console.log('数据已保存到本地存储');
+        } catch (err) {
+            console.error('保存到本地存储时出错:', err);
+        }
+        
+        // 如果 Firebase 可用，也保存到 Firebase
+        if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+            try {
+                const db = firebase.firestore();
+                if (isNewItem) {
+                    // 添加新记录
+                    return db.collection('salesData').add(newItem)
+                        .then(() => {
+                            console.log('数据已添加到 Firebase');
+                            return true;
+                        })
+                        .catch(error => {
+                            console.error('添加数据到 Firebase 时出错:', error);
+                            alert('数据已保存到本地，但同步到云端失败');
+                            return false;
+                        });
+                } else if (newItem.id) {
+                    // 更新现有记录
+                    const itemId = newItem.id;
+                    const dataToSave = { ...newItem };
+                    delete dataToSave.id; // 移除 ID 字段，不需要存储
+                    
+                    return db.collection('salesData').doc(itemId).update(dataToSave)
+                        .then(() => {
+                            console.log('数据已更新到 Firebase');
+                            return true;
+                        })
+                        .catch(error => {
+                            console.error('更新数据到 Firebase 时出错:', error);
+                            alert('数据已保存到本地，但同步到云端失败');
+                            return false;
+                        });
+                }
+            } catch (error) {
+                console.error('与 Firebase 交互时出错:', error);
+                return false;
+            }
+        } else {
+            console.log('Firebase 不可用，数据仅保存到本地');
+            return Promise.resolve(true);
+        }
+    } catch (error) {
+        console.error('保存数据时出错:', error);
+        alert('保存数据时出错: ' + error.message);
+        return Promise.reject(error);
+    }
 }
 
 // 初始化事件监听
@@ -453,6 +616,7 @@ function initWheelDatePicker() {
 // 处理表单提交
 function handleFormSubmit(e) {
     e.preventDefault();
+    console.log('处理表单提交...');
     
     const date = document.getElementById('date').value;
     const wechat = document.getElementById('wechat').value;
@@ -461,7 +625,7 @@ function handleFormSubmit(e) {
     const notes = document.getElementById('notes')?.value || '';
     
     if (!date) {
-        showNotification('请选择日期', 'error');
+        alert('请选择日期');
         return;
     }
     
@@ -473,30 +637,31 @@ function handleFormSubmit(e) {
             // 编辑现有数据
             const index = salesData.findIndex(item => item.id === itemId);
             if (index !== -1) {
-                salesData[index] = {
+                const updatedItem = {
                     ...salesData[index],
                     date,
                     wechat: parseInt(wechat || 0),
                     samples: parseInt(samples || 0),
                     sales: parseInt(sales || 0),
-                    notes
+                    notes,
+                    updated_at: new Date().toISOString()
                 };
                 
-                // 更新Firebase
-                if (firebase.apps.length) {
-                    const db = firebase.firestore();
-                    db.collection('salesData').doc(itemId).update({
-                        date,
-                        wechat: parseInt(wechat || 0),
-                        samples: parseInt(samples || 0),
-                        sales: parseInt(sales || 0),
-                        notes
-                    }).catch(error => {
-                        console.error('更新数据时出错:', error);
-                    });
-                }
+                // 更新本地数据
+                salesData[index] = updatedItem;
                 
-                showNotification('数据已更新');
+                // 保存数据
+                saveData(updatedItem, false)
+                    .then(success => {
+                        if (success) {
+                            console.log('数据更新成功');
+                            alert('数据已更新');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('更新数据失败:', error);
+                        alert('更新数据失败: ' + error.message);
+                    });
             }
         } else {
             // 添加新数据
@@ -506,31 +671,23 @@ function handleFormSubmit(e) {
                 samples: parseInt(samples || 0),
                 sales: parseInt(sales || 0),
                 notes,
-                id: Date.now().toString()
+                id: 'new_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9),
+                created_at: new Date().toISOString()
             };
             
-            salesData.push(newItem);
-            
-            // 添加到Firebase
-            if (firebase.apps.length) {
-                const db = firebase.firestore();
-                db.collection('salesData').add(newItem).catch(error => {
-                    console.error('添加数据时出错:', error);
+            // 保存数据
+            saveData(newItem, true)
+                .then(success => {
+                    if (success) {
+                        console.log('数据添加成功');
+                        alert('数据已添加');
+                    }
+                })
+                .catch(error => {
+                    console.error('添加数据失败:', error);
+                    alert('添加数据失败: ' + error.message);
                 });
-            }
-            
-            showNotification('数据已添加');
         }
-        
-        // 更新过滤数据
-        filteredData = [...salesData];
-        
-        // 更新UI
-        updateStatistics();
-        updateChart();
-        renderTable();
-        renderRecentData();
-        updateTodaySummary();
         
         // 重置表单并隐藏
         resetForm();
@@ -538,7 +695,7 @@ function handleFormSubmit(e) {
         
     } catch (error) {
         console.error('处理表单提交时出错:', error);
-        showNotification('操作失败: ' + error.message, 'error');
+        alert('操作失败: ' + error.message);
     }
 }
 
@@ -733,22 +890,62 @@ function changePage(direction) {
 
 // 处理删除操作
 function handleDelete(e) {
-    const recordId = e.target.closest('tr').dataset.id;
-    const date = e.target.closest('tr').cells[0].textContent;
-    
-    showConfirmDialog(
-        '确认删除',
-        `确定要删除 ${date} 的销售记录吗？`,
-        async () => {
-            // 使用Firebase删除记录
-            const success = await deleteSalesRecord(recordId);
-            if (success) {
-                showNotification('记录已成功删除');
+    const itemId = e.currentTarget.dataset.id;
+    if (!itemId) {
+        console.error('删除失败: 未找到 ID');
+        alert('删除失败: 未找到数据 ID');
+        return;
+    }
+
+    if (confirm('确定要删除这条记录吗？此操作不可撤销。')) {
+        console.log('删除数据:', itemId);
+
+        try {
+            // 从本地数据中移除
+            const index = salesData.findIndex(item => item.id === itemId);
+            if (index !== -1) {
+                salesData.splice(index, 1);
+                filteredData = [...salesData];
+                
+                // 更新 UI
+                updateUI();
+                
+                // 保存到本地存储
+                try {
+                    localStorage.setItem('salesData', JSON.stringify(salesData));
+                    console.log('本地数据已更新');
+                } catch (err) {
+                    console.error('更新本地存储时出错:', err);
+                }
+                
+                // 如果 Firebase 可用，也从 Firebase 删除
+                if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+                    try {
+                        firebase.firestore().collection('salesData').doc(itemId).delete()
+                            .then(() => {
+                                console.log('Firebase 数据已删除');
+                                alert('记录已成功删除');
+                            })
+                            .catch(error => {
+                                console.error('从 Firebase 删除数据时出错:', error);
+                                alert('数据已从本地删除，但从云端删除失败');
+                            });
+                    } catch (error) {
+                        console.error('与 Firebase 交互时出错:', error);
+                        alert('数据已从本地删除，但从云端删除失败');
+                    }
+                } else {
+                    alert('记录已成功删除');
+                }
             } else {
-                showNotification('删除记录失败，请重试', 'error');
+                console.error('未找到要删除的数据');
+                alert('未找到要删除的数据');
             }
+        } catch (error) {
+            console.error('删除数据时出错:', error);
+            alert('删除数据时出错: ' + error.message);
         }
-    );
+    }
 }
 
 // 处理搜索
@@ -1349,35 +1546,30 @@ function hideConfirmDialog() {
     dialog.classList.remove('active');
 }
 
-// 显示通知
+// 显示通知(仅控制台输出，不显示UI)
 function showNotification(message, type = 'success') {
+    // 仅在控制台输出消息，不显示UI通知
+    console.log(`通知(${type}): ${message}`);
+    
+    // 查找并移除任何可能存在的通知
     const notification = document.getElementById('notification');
-    const notificationMessage = document.getElementById('notification-message');
-    const notificationIcon = notification.querySelector('.notification-icon i');
-    
-    notificationMessage.textContent = message;
-    
-    if (type === 'error') {
-        notification.classList.add('error');
-        notificationIcon.className = 'fas fa-times-circle';
-    } else {
-        notification.classList.remove('error');
-        notificationIcon.className = 'fas fa-check-circle';
+    if (notification) {
+        notification.classList.remove('visible');
     }
-    
-    notification.classList.add('show');
-    
-    // 3秒后自动隐藏
-    setTimeout(() => {
-        notification.classList.remove('show');
-    }, 3000);
 }
 
 // 备份Firebase数据
 async function backupFirebaseData() {
     try {
         // 获取所有数据的快照
-        const snapshot = await salesCollection.get();
+        if (!firebase.apps.length) {
+            console.error('Firebase未初始化');
+            showNotification('Firebase未初始化，无法备份数据', 'error');
+            return;
+        }
+        
+        const db = firebase.firestore();
+        const snapshot = await db.collection('salesData').get();
         const backupData = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
@@ -1396,13 +1588,7 @@ async function backupFirebaseData() {
         // 创建下载链接
         const downloadLink = document.createElement('a');
         downloadLink.href = url;
-        
-        // 创建文件名: coffee-sales-backup-YYYY-MM-DD.json
-        const today = new Date();
-        const dateString = today.toISOString().split('T')[0];
-        downloadLink.download = `coffee-sales-backup-${dateString}.json`;
-        
-        // 模拟点击下载
+        downloadLink.download = `coffee_sales_backup_${new Date().toISOString().split('T')[0]}.json`;
         document.body.appendChild(downloadLink);
         downloadLink.click();
         document.body.removeChild(downloadLink);
@@ -1509,12 +1695,19 @@ function initWelcomeScreen() {
 
 // 更新欢迎语
 function updateGreeting() {
-    const greetingEl = document.getElementById('greeting-text');
-    const welcomeMessageEl = document.getElementById('welcome-message');
-    const now = new Date();
-    const hour = now.getHours();
+    console.log('更新问候语...');
     
+    const greetingElement = document.getElementById('greeting-text');
+    
+    if (!greetingElement) {
+        console.warn('未找到greeting-text元素');
+        return;
+    }
+    
+    const hour = new Date().getHours();
     let greeting = '';
+    
+    // 根据时间设置不同的问候语
     if (hour >= 5 && hour < 12) {
         greeting = '早上好！';
     } else if (hour >= 12 && hour < 18) {
@@ -1523,37 +1716,43 @@ function updateGreeting() {
         greeting = '晚上好！';
     }
     
-    if (greetingEl) {
-        greetingEl.textContent = greeting;
-    }
-    
-    if (welcomeMessageEl) {
-        const randomMessages = [
-            "正在准备您的咖啡销售数据...",
-            "为您温暖一杯数据拿铁...",
-            "今天又是充满咖啡香的一天...",
-            "给数据加点糖和奶泡...",
-            "新鲜数据，正在萃取中..."
-        ];
-        welcomeMessageEl.textContent = randomMessages[Math.floor(Math.random() * randomMessages.length)];
-    }
+    greetingElement.textContent = greeting;
+    console.log('问候语已更新:', greeting);
 }
 
 // 更新今日概况
 function updateTodaySummary() {
-    const summaryEl = document.getElementById('today-summary');
+    console.log('更新今日数据摘要...');
+    
+    // 获取今天的日期（格式：YYYY-MM-DD）
     const today = new Date().toISOString().split('T')[0];
     
+    // 过滤出今天的数据
     const todayData = salesData.filter(item => item.date === today);
     
+    // 获取今日摘要元素
+    const todaySummaryElement = document.getElementById('today-summary');
+    
+    if (!todaySummaryElement) {
+        console.warn('未找到today-summary元素');
+        return;
+    }
+    
+    // 如果今天有数据，更新摘要
     if (todayData.length > 0) {
-        const totalWechat = todayData.reduce((sum, item) => sum + parseInt(item.wechat || 0), 0);
-        const totalSamples = todayData.reduce((sum, item) => sum + parseInt(item.samples || 0), 0);
-        const totalSales = todayData.reduce((sum, item) => sum + parseInt(item.sales || 0), 0);
+        // 计算今日总计
+        const totalWechat = todayData.reduce((sum, item) => sum + (parseInt(item.wechat) || 0), 0);
+        const totalSamples = todayData.reduce((sum, item) => sum + (parseInt(item.samples) || 0), 0);
+        const totalSales = todayData.reduce((sum, item) => sum + (parseInt(item.sales) || 0), 0);
         
-        summaryEl.innerHTML = `今日已添加 <strong>${totalWechat}</strong> 位微信好友，发出 <strong>${totalSamples}</strong> 份样品，销售额 <strong>¥${totalSales}</strong>`;
+        // 更新摘要文本
+        todaySummaryElement.innerHTML = `今日已添加 <strong>${totalWechat}</strong> 位微信好友，发出 <strong>${totalSamples}</strong> 份样品，销售额 <strong>¥${totalSales}</strong>`;
+        
+        console.log('今日数据摘要已更新:', totalWechat, totalSamples, totalSales);
     } else {
-        summaryEl.textContent = '今日尚无销售数据，立即添加新的记录？';
+        // 如果今天没有数据，显示默认文本
+        todaySummaryElement.textContent = '今日尚无销售数据，立即添加新的记录？';
+        console.log('今日无数据，显示默认摘要');
     }
 }
 
@@ -1618,13 +1817,14 @@ function openQuickAddModal() {
 
 // 处理快速添加表单提交
 function handleQuickFormSubmit() {
+    console.log('处理快速添加表单...');
     const date = document.getElementById('quick-date').value;
     const wechat = document.getElementById('quick-wechat').value;
     const samples = document.getElementById('quick-samples').value;
     const sales = document.getElementById('quick-sales').value;
     
     if (!date) {
-        showNotification('请选择日期', 'error');
+        alert('请选择日期');
         return;
     }
     
@@ -1634,42 +1834,34 @@ function handleQuickFormSubmit() {
         wechat: parseInt(wechat || 0),
         samples: parseInt(samples || 0),
         sales: parseInt(sales || 0),
-        id: Date.now().toString()
+        id: 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9),
+        timestamp: new Date().toISOString()
     };
     
     try {
-        // 直接添加到本地数据
-        salesData.push(newItem);
-        filteredData = [...salesData];
-        
-        // 更新表格和统计信息
-        updateStatistics();
-        updateChart();
-        renderTable();
-        renderRecentData();
-        updateTodaySummary();
-        
-        // 添加到Firebase (如果已连接)
-        if (firebase.apps.length) {
-            const db = firebase.firestore();
-            db.collection('salesData').add(newItem)
-                .then(() => {
-                    console.log('数据已添加到Firebase');
-                })
-                .catch(error => {
-                    console.error('添加数据到Firebase时出错:', error);
-                    showNotification('数据已保存本地，但同步到云端失败', 'warning');
-                });
-        }
-        
-        // 关闭弹窗
+        // 关闭弹窗，防止重复提交
         closeModal('quick-add-modal');
+
+        // 保存数据
+        saveData(newItem, true)
+            .then(success => {
+                if (success) {
+                    console.log('数据添加成功');
+                    alert('数据添加成功');
+                }
+            })
+            .catch(error => {
+                console.error('添加数据时出错:', error);
+                alert('添加数据失败: ' + error.message);
+            });
         
-        // 显示成功通知
-        showNotification('数据添加成功！');
+        // 重置表单
+        document.getElementById('quick-form').reset();
+        document.getElementById('quick-date').value = new Date().toISOString().split('T')[0];
+        
     } catch (error) {
         console.error('添加数据时出错:', error);
-        showNotification('添加数据失败: ' + error.message, 'error');
+        alert('添加数据失败: ' + error.message);
     }
 }
 
