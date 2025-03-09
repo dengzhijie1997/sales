@@ -12,6 +12,16 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
     <script src="firebase-config.js"></script>
+    
+    <!-- PWA相关标签 -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#8b5a2b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="咖啡销售">
+    <link rel="apple-touch-icon" href="icons/icon-152x152.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-72x72.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-72x72.png">
 </head>
 <body>
     <div class="app-container">
@@ -309,5 +319,20 @@
     </div>
 
     <script src="app.js"></script>
+    
+    <!-- Service Worker注册 -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('Service Worker 注册成功，作用域: ', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('Service Worker 注册失败: ', error);
+                    });
+            });
+        }
+    </script>
 </body>
 </html> 
