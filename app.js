@@ -5,6 +5,7 @@ const itemsPerPage = 10; // 每页显示数据数量
 let currentPage = 1;
 let chartInstance = null;
 let unsubscribe = null; // Firebase实时监听取消函数
+let currentPageId = 'dashboard'; // 当前页面ID
 
 // DOM元素加载完成后执行
 document.addEventListener('DOMContentLoaded', () => {
@@ -16,6 +17,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 初始化事件监听
     initEventListeners();
+    
+    // 初始化转盘式日期选择器
+    initWheelDatePicker();
 });
 
 // 更新当前日期显示
@@ -57,23 +61,26 @@ function saveData() {
 
 // 初始化事件监听
 function initEventListeners() {
-    // 导航链接点击事件
+    // 导航链接点击事件 - 侧边栏
     const navLinks = document.querySelectorAll('.nav-link');
     navLinks.forEach(link => {
         link.addEventListener('click', function(e) {
             e.preventDefault();
-            const section = this.getAttribute('data-section');
+            const pageId = this.getAttribute('data-page');
+            navigateToPage(pageId);
             
-            // 移除所有导航链接的活动状态
-            navLinks.forEach(navLink => {
-                navLink.classList.remove('active');
-            });
-            
-            // 添加当前链接的活动状态
-            this.classList.add('active');
-            
-            // 切换内容区域
-            activateSection(section);
+            // 关闭侧边栏 (移动端)
+            document.querySelector('.sidebar').classList.remove('expanded');
+        });
+    });
+    
+    // 导航链接点击事件 - 底部导航
+    const bottomNavLinks = document.querySelectorAll('.bottom-nav-link');
+    bottomNavLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const pageId = this.getAttribute('data-page');
+            navigateToPage(pageId);
         });
     });
     
@@ -81,7 +88,6 @@ function initEventListeners() {
     const menuToggle = document.getElementById('menu-toggle');
     menuToggle.addEventListener('click', function() {
         document.querySelector('.sidebar').classList.toggle('expanded');
-        document.querySelector('.main-content').classList.toggle('sidebar-expanded');
     });
     
     // 表单提交事件
@@ -104,48 +110,311 @@ function initEventListeners() {
     document.getElementById('chart-period').addEventListener('change', updateChart);
     document.getElementById('chart-type').addEventListener('change', updateChart);
     
-    // 示例数据填充按钮
+    // 按钮事件
     document.getElementById('fill-demo').addEventListener('click', fillDemoData);
+    document.getElementById('clear-data').addEventListener('click', clearAllData);
     
-    // 清空数据按钮
-    document.getElementById('clear-data').addEventListener('click', () => {
-        showConfirmDialog(
-            '清空所有数据',
-            '确定要清空所有销售数据吗？此操作不可恢复！',
-            clearAllData
-        );
-    });
-    
-    // 模态框关闭按钮
+    // 确认对话框控制
     document.getElementById('close-confirm').addEventListener('click', hideConfirmDialog);
     document.getElementById('confirm-cancel').addEventListener('click', hideConfirmDialog);
     
-    // 导出按钮事件
-    document.getElementById('export-all').addEventListener('click', exportAllData);
-    document.getElementById('export-monthly').addEventListener('click', exportMonthlyData);
+    // 导出按钮
+    document.getElementById('export-today').addEventListener('click', () => exportData('today'));
+    document.getElementById('export-month').addEventListener('click', () => exportData('month'));
+    document.getElementById('export-all').addEventListener('click', () => exportData('all'));
     
-    // 在页面加载时将日期输入框默认值设为今天
-    const dateInput = document.getElementById('date');
-    dateInput.valueAsDate = new Date();
+    // 处理哈希变化
+    window.addEventListener('hashchange', handleHashChange);
+    
+    // 初始哈希处理
+    handleHashChange();
 }
 
-// 切换激活的部分
-function activateSection(sectionId) {
-    // 更新内容部分显示
-    const contentSections = document.querySelectorAll('.content-section');
-    contentSections.forEach(section => {
-        if (section.id === sectionId) {
-            section.classList.add('active');
+// 处理哈希变化
+function handleHashChange() {
+    const hash = window.location.hash.substring(1);
+    if (hash && ['dashboard', 'data-entry', 'export'].includes(hash)) {
+        navigateToPage(hash);
+    }
+}
+
+// 页面导航
+function navigateToPage(pageId) {
+    if (pageId === currentPageId) return;
+    
+    // 更新导航链接状态
+    document.querySelectorAll('.nav-link, .bottom-nav-link').forEach(link => {
+        if (link.getAttribute('data-page') === pageId) {
+            link.classList.add('active');
         } else {
-            section.classList.remove('active');
+            link.classList.remove('active');
         }
     });
     
-    // 如果是在移动设备上，可能需要收起菜单
-    if (window.innerWidth <= 768) {
-        document.querySelector('.sidebar').classList.remove('expanded');
-        document.querySelector('.main-content').classList.remove('sidebar-expanded');
+    // 获取当前页面和目标页面
+    const currentPageEl = document.getElementById(currentPageId);
+    const targetPageEl = document.getElementById(pageId);
+    
+    // 决定动画方向
+    const pages = ['dashboard', 'data-entry', 'export'];
+    const currentIndex = pages.indexOf(currentPageId);
+    const targetIndex = pages.indexOf(pageId);
+    const direction = targetIndex > currentIndex ? 'next' : 'prev';
+    
+    // 设置过渡类
+    if (direction === 'next') {
+        currentPageEl.className = 'page page-prev';
+        targetPageEl.className = 'page page-current';
+    } else {
+        currentPageEl.className = 'page page-next';
+        targetPageEl.className = 'page page-current';
     }
+    
+    // 更新当前页面ID
+    currentPageId = pageId;
+    
+    // 更新URL哈希
+    window.location.hash = pageId;
+}
+
+// 初始化转盘式日期选择器
+function initWheelDatePicker() {
+    const container = document.getElementById('wheel-date-picker');
+    const dateInput = document.getElementById('date');
+    const now = new Date();
+    
+    // 创建年轮盘
+    const yearWheel = document.createElement('div');
+    yearWheel.className = 'wheel-container';
+    
+    // 创建月轮盘
+    const monthWheel = document.createElement('div');
+    monthWheel.className = 'wheel';
+    
+    // 创建日轮盘
+    const dayWheel = document.createElement('div');
+    dayWheel.className = 'wheel';
+    
+    // 添加高亮区域
+    const yearHighlight = document.createElement('div');
+    yearHighlight.className = 'wheel-highlight';
+    yearWheel.appendChild(yearHighlight);
+    
+    const monthHighlight = document.createElement('div');
+    monthHighlight.className = 'wheel-highlight';
+    monthWheel.appendChild(monthHighlight);
+    
+    const dayHighlight = document.createElement('div');
+    dayHighlight.className = 'wheel-highlight';
+    dayWheel.appendChild(dayHighlight);
+    
+    // 生成年份选项 (当前年份和前后2年)
+    const currentYear = now.getFullYear();
+    for (let i = currentYear - 2; i <= currentYear + 2; i++) {
+        const yearItem = document.createElement('div');
+        yearItem.className = 'wheel-item';
+        yearItem.textContent = i;
+        yearItem.dataset.value = i;
+        yearWheel.appendChild(yearItem);
+    }
+    
+    // 生成月份选项
+    const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+    for (let i = 0; i < 12; i++) {
+        const monthItem = document.createElement('div');
+        monthItem.className = 'wheel-item';
+        monthItem.textContent = monthNames[i];
+        monthItem.dataset.value = i + 1;
+        monthWheel.appendChild(monthItem);
+    }
+    
+    // 添加各部分到容器
+    container.appendChild(yearWheel);
+    container.appendChild(monthWheel);
+    container.appendChild(dayWheel);
+    
+    // 初始化日期
+    const currentMonth = now.getMonth() + 1;
+    const currentDay = now.getDate();
+    
+    // 初始化显示当前日期
+    updateDayWheel(currentYear, currentMonth);
+    positionWheelItems(yearWheel, currentYear);
+    positionWheelItems(monthWheel, currentMonth);
+    positionWheelItems(dayWheel, currentDay);
+    
+    // 更新隐藏的日期输入字段
+    updateDateInput(currentYear, currentMonth, currentDay);
+    
+    // 添加滚动事件或点击事件
+    addWheelEvents(yearWheel, value => {
+        const month = parseInt(getSelectedValue(monthWheel));
+        updateDayWheel(value, month);
+        updateDateInput(value, month, parseInt(getSelectedValue(dayWheel)));
+    });
+    
+    addWheelEvents(monthWheel, value => {
+        const year = parseInt(getSelectedValue(yearWheel));
+        updateDayWheel(year, value);
+        updateDateInput(year, value, parseInt(getSelectedValue(dayWheel)));
+    });
+    
+    addWheelEvents(dayWheel, value => {
+        const year = parseInt(getSelectedValue(yearWheel));
+        const month = parseInt(getSelectedValue(monthWheel));
+        updateDateInput(year, month, value);
+    });
+}
+
+// 更新日期输入字段
+function updateDateInput(year, month, day) {
+    const dateInput = document.getElementById('date');
+    const formattedMonth = month.toString().padStart(2, '0');
+    const formattedDay = day.toString().padStart(2, '0');
+    dateInput.value = `${year}-${formattedMonth}-${formattedDay}`;
+}
+
+// 更新日轮盘
+function updateDayWheel(year, month) {
+    const dayWheel = document.querySelectorAll('.wheel')[2];
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const currentDay = Math.min(parseInt(getSelectedValue(dayWheel) || 1), daysInMonth);
+    
+    // 清除现有日期选项
+    Array.from(dayWheel.querySelectorAll('.wheel-item')).forEach(item => {
+        dayWheel.removeChild(item);
+    });
+    
+    // 生成日期选项
+    for (let i = 1; i <= daysInMonth; i++) {
+        const dayItem = document.createElement('div');
+        dayItem.className = 'wheel-item';
+        dayItem.textContent = i;
+        dayItem.dataset.value = i;
+        dayWheel.appendChild(dayItem);
+    }
+    
+    // 重新定位日轮盘
+    positionWheelItems(dayWheel, currentDay);
+}
+
+// 添加轮盘事件
+function addWheelEvents(wheel, onChange) {
+    let startY, currentY;
+    let selectedIndex = 0;
+    
+    // 鼠标/触摸开始
+    wheel.addEventListener('mousedown', startDrag);
+    wheel.addEventListener('touchstart', e => {
+        e.preventDefault();
+        startDrag(e.touches[0]);
+    });
+    
+    // 鼠标/触摸移动
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('touchmove', e => {
+        e.preventDefault();
+        drag(e.touches[0]);
+    });
+    
+    // 鼠标/触摸结束
+    document.addEventListener('mouseup', endDrag);
+    document.addEventListener('touchend', endDrag);
+    
+    // 点击选择
+    wheel.addEventListener('click', e => {
+        if (e.target.classList.contains('wheel-item')) {
+            const value = parseInt(e.target.dataset.value);
+            positionWheelItems(wheel, value);
+            onChange(value);
+        }
+    });
+    
+    function startDrag(e) {
+        startY = e.clientY;
+        wheel.style.transition = 'none';
+    }
+    
+    function drag(e) {
+        if (!startY) return;
+        
+        currentY = e.clientY;
+        const diff = currentY - startY;
+        
+        // 移动轮盘项
+        const items = wheel.querySelectorAll('.wheel-item');
+        items.forEach(item => {
+            const top = parseInt(item.style.top || 0);
+            item.style.top = `${top + diff}px`;
+        });
+        
+        startY = currentY;
+    }
+    
+    function endDrag() {
+        if (!startY) return;
+        
+        // 找到最接近中心的项
+        const items = wheel.querySelectorAll('.wheel-item');
+        let closestItem = null;
+        let minDistance = Infinity;
+        
+        const wheelRect = wheel.getBoundingClientRect();
+        const centerY = wheelRect.top + wheelRect.height / 2;
+        
+        items.forEach(item => {
+            const itemRect = item.getBoundingClientRect();
+            const itemCenterY = itemRect.top + itemRect.height / 2;
+            const distance = Math.abs(centerY - itemCenterY);
+            
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestItem = item;
+            }
+        });
+        
+        if (closestItem) {
+            const value = parseInt(closestItem.dataset.value);
+            positionWheelItems(wheel, value);
+            onChange(value);
+        }
+        
+        startY = null;
+        wheel.style.transition = '';
+    }
+}
+
+// 定位轮盘项
+function positionWheelItems(wheel, selectedValue) {
+    const items = wheel.querySelectorAll('.wheel-item');
+    const itemHeight = 40; // 轮盘项高度
+    
+    items.forEach(item => {
+        const value = parseInt(item.dataset.value);
+        const offset = (value - selectedValue) * itemHeight;
+        item.style.top = `calc(50% - 20px + ${offset}px)`;
+        
+        // 调整透明度
+        const distance = Math.abs(value - selectedValue);
+        item.style.opacity = distance === 0 ? 1 : Math.max(0.3, 1 - distance * 0.2);
+    });
+}
+
+// 获取当前选中值
+function getSelectedValue(wheel) {
+    const items = wheel.querySelectorAll('.wheel-item');
+    let selectedItem = null;
+    let maxOpacity = 0;
+    
+    items.forEach(item => {
+        const opacity = parseFloat(item.style.opacity || 0);
+        if (opacity > maxOpacity) {
+            maxOpacity = opacity;
+            selectedItem = item;
+        }
+    });
+    
+    return selectedItem ? selectedItem.dataset.value : null;
 }
 
 // 处理表单提交
@@ -780,173 +1049,88 @@ function updateExportYearOptions() {
     yearSelect.value = 'all';
 }
 
-// 导出所有数据
-function exportAllData() {
-    if (salesData.length === 0) {
-        showNotification('没有数据可导出', 'error');
-        return;
+// 导出数据到Markdown格式
+function exportData(timeRange) {
+    let dataToExport = [];
+    const now = new Date();
+    const today = now.toISOString().split('T')[0]; // 今天的日期 YYYY-MM-DD
+    const currentMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`; // 当前月份 YYYY-MM
+    
+    // 根据时间范围筛选数据
+    if (timeRange === 'today') {
+        dataToExport = salesData.filter(item => item.date === today);
+    } else if (timeRange === 'month') {
+        dataToExport = salesData.filter(item => item.date.startsWith(currentMonth));
+    } else {
+        dataToExport = [...salesData];
     }
     
-    const format = document.getElementById('export-format').value;
-    const year = document.getElementById('export-year').value;
-    
-    let dataToExport = [...salesData];
-    
-    // 如果选择了特定年份
-    if (year !== 'all') {
-        dataToExport = dataToExport.filter(item => {
-            return new Date(item.date).getFullYear() === parseInt(year);
-        });
-    }
-    
+    // 如果没有数据，显示提示
     if (dataToExport.length === 0) {
-        showNotification(`${year}年没有数据`, 'error');
+        showNotification('所选时间范围内没有数据', 'warning');
         return;
     }
     
-    exportData(dataToExport, format, `咖啡豆销售数据_${year !== 'all' ? year : '全部'}`);
-}
-
-// 导出月度汇总数据
-function exportMonthlyData() {
-    if (salesData.length === 0) {
-        showNotification('没有数据可导出', 'error');
-        return;
+    // 生成Markdown表格
+    let markdown = '# 咖啡豆销售数据报表\n\n';
+    
+    // 添加时间范围信息
+    if (timeRange === 'today') {
+        markdown += `## 今日(${formatDate(today)})数据\n\n`;
+    } else if (timeRange === 'month') {
+        const monthName = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' });
+        markdown += `## ${monthName}数据\n\n`;
+    } else {
+        markdown += '## 全部数据\n\n';
     }
     
-    const format = document.getElementById('export-format').value;
-    const year = document.getElementById('export-year').value;
+    // 添加表格头
+    markdown += '| 日期 | 微信添加 | 样品发出 | 销售额(元) |\n';
+    markdown += '| ---- | -------- | -------- | ---------- |\n';
     
-    // 按月分组数据
-    const monthlyData = {};
+    // 排序数据 (按日期降序)
+    dataToExport.sort((a, b) => new Date(b.date) - new Date(a.date));
     
-    salesData.forEach(item => {
-        const date = new Date(item.date);
-        const itemYear = date.getFullYear();
-        
-        // 如果选择了特定年份，过滤数据
-        if (year !== 'all' && itemYear !== parseInt(year)) {
-            return;
-        }
-        
-        const month = date.getMonth() + 1;
-        const monthKey = `${itemYear}-${month.toString().padStart(2, '0')}`;
-        
-        if (!monthlyData[monthKey]) {
-            monthlyData[monthKey] = {
-                year: itemYear,
-                month: month,
-                wechat: 0,
-                samples: 0,
-                sales: 0
-            };
-        }
-        
-        monthlyData[monthKey].wechat += item.wechat;
-        monthlyData[monthKey].samples += item.samples;
-        monthlyData[monthKey].sales += item.sales;
+    // 添加数据行
+    dataToExport.forEach(item => {
+        markdown += `| ${formatDate(item.date)} | ${item.wechat} | ${item.samples} | ${item.sales.toFixed(2)} |\n`;
     });
     
-    const monthlyArray = Object.values(monthlyData);
+    // 添加统计信息
+    const totalWechat = dataToExport.reduce((sum, item) => sum + item.wechat, 0);
+    const totalSamples = dataToExport.reduce((sum, item) => sum + item.samples, 0);
+    const totalSales = dataToExport.reduce((sum, item) => sum + item.sales, 0);
+    const conversionRate = totalWechat > 0 ? (totalSamples / totalWechat * 100).toFixed(2) : 0;
     
-    if (monthlyArray.length === 0) {
-        showNotification(`${year}年没有数据`, 'error');
-        return;
-    }
+    markdown += '\n## 统计汇总\n\n';
+    markdown += `- **微信添加总数:** ${totalWechat}\n`;
+    markdown += `- **样品发出总数:** ${totalSamples}\n`;
+    markdown += `- **销售总额:** ¥${totalSales.toFixed(2)}\n`;
+    markdown += `- **转化率:** ${conversionRate}%\n`;
     
-    // 按年月排序
-    monthlyArray.sort((a, b) => {
-        if (a.year !== b.year) return a.year - b.year;
-        return a.month - b.month;
-    });
-    
-    exportData(monthlyArray, format, `咖啡豆销售月度数据_${year !== 'all' ? year : '全部'}`);
-}
-
-// 导出数据为指定格式
-function exportData(data, format, filename) {
-    let content;
-    let mimeType;
-    let extension;
-    
-    switch (format) {
-        case 'csv':
-            content = convertToCSV(data);
-            mimeType = 'text/csv;charset=utf-8;';
-            extension = 'csv';
-            break;
-        case 'json':
-            content = JSON.stringify(data, null, 2);
-            mimeType = 'application/json;charset=utf-8;';
-            extension = 'json';
-            break;
-        case 'excel':
-            // 对于Excel，我们仍然使用CSV，但改变MIME类型
-            content = convertToCSV(data);
-            mimeType = 'application/vnd.ms-excel;charset=utf-8;';
-            extension = 'xls';
-            break;
-    }
-    
-    // 创建下载链接
-    const blob = new Blob([content], { type: mimeType });
+    // 生成下载文件
+    const blob = new Blob([markdown], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${filename}.${extension}`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const a = document.createElement('a');
+    a.href = url;
     
-    showNotification(`数据已导出为 ${filename}.${extension}`);
-}
-
-// 转换数据为CSV格式
-function convertToCSV(data) {
-    if (data.length === 0) return '';
+    // 设置文件名
+    let filename;
+    if (timeRange === 'today') {
+        filename = `咖啡销售数据_${today}.md`;
+    } else if (timeRange === 'month') {
+        filename = `咖啡销售数据_${currentMonth}.md`;
+    } else {
+        filename = `咖啡销售数据_全部.md`;
+    }
     
-    // 获取所有可能的字段
-    const allFields = new Set();
-    data.forEach(item => {
-        Object.keys(item).forEach(key => allFields.add(key));
-    });
+    a.download = filename;
+    a.click();
     
-    const fields = Array.from(allFields);
+    // 释放URL对象
+    URL.revokeObjectURL(url);
     
-    // 创建表头
-    const header = fields.map(field => {
-        // 将字段名转换为中文
-        const fieldMap = {
-            'date': '日期',
-            'wechat': '微信添加',
-            'samples': '样品发出',
-            'sales': '销售额',
-            'year': '年份',
-            'month': '月份'
-        };
-        return fieldMap[field] || field;
-    }).join(',');
-    
-    // 创建数据行
-    const rows = data.map(item => {
-        return fields.map(field => {
-            const value = item[field] === undefined ? '' : item[field];
-            // 如果是日期字段，格式化它
-            if (field === 'date' && value) {
-                return formatDate(value);
-            }
-            return value;
-        }).join(',');
-    }).join('\n');
-    
-    return header + '\n' + rows;
-}
-
-// 格式化日期
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return `${date.getFullYear()}年${(date.getMonth() + 1).toString().padStart(2, '0')}月${date.getDate().toString().padStart(2, '0')}日`;
+    showNotification('数据导出成功');
 }
 
 // 填充演示数据
