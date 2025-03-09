@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UI功能测试页面</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .test-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background-color: var(--background-color);
+            border-radius: var(--card-radius);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        .test-title {
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .test-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .test-item {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .test-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1 class="test-title">UI功能测试页面</h1>
+        <p>这个页面用于测试各种UI组件和交互功能是否正常工作。</p>
+        
+        <!-- 测试欢迎屏幕 -->
+        <div class="test-section">
+            <h2 class="test-title">欢迎屏幕测试</h2>
+            <div class="test-buttons">
+                <button class="btn btn-primary" id="show-welcome">显示欢迎屏幕</button>
+            </div>
+            <div id="welcome-preview" style="margin-top: 20px; display: none;">
+                <div class="welcome-screen" style="position: relative; height: 300px; opacity: 1; visibility: visible;">
+                    <div class="welcome-content">
+                        <div class="welcome-icon">
+                            <i class="fas fa-coffee"></i>
+                        </div>
+                        <h1 class="welcome-title">欢迎回来</h1>
+                        <p class="welcome-message">正在准备您的咖啡销售数据...</p>
+                        <div class="welcome-loading">
+                            <div class="loading-bar"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 测试弹窗 -->
+        <div class="test-section">
+            <h2 class="test-title">弹窗测试</h2>
+            <div class="test-buttons">
+                <button class="btn btn-primary" id="show-quick-add">快速添加弹窗</button>
+                <button class="btn btn-secondary" id="show-filter">筛选弹窗</button>
+                <button class="btn btn-secondary" id="show-export">导出弹窗</button>
+            </div>
+        </div>
+        
+        <!-- 测试按钮和卡片 -->
+        <div class="test-section">
+            <h2 class="test-title">按钮和卡片测试</h2>
+            <div class="test-items">
+                <div class="test-item">
+                    <h3>按钮样式</h3>
+                    <button class="btn btn-primary">主要按钮</button>
+                    <button class="btn btn-secondary">次要按钮</button>
+                    <button class="btn btn-danger">危险按钮</button>
+                </div>
+                <div class="test-item">
+                    <h3>卡片样式</h3>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-coffee"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>测试卡片</h3>
+                            <p>100</p>
+                            <div class="stat-trend positive">
+                                <i class="fas fa-arrow-up"></i> <span>10%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 测试表单 -->
+        <div class="test-section">
+            <h2 class="test-title">表单测试</h2>
+            <form id="test-form">
+                <div class="form-group">
+                    <label for="test-date">日期</label>
+                    <input type="date" id="test-date" class="form-control" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group half">
+                        <label for="test-wechat">微信添加</label>
+                        <input type="number" id="test-wechat" class="form-control" min="0" value="0" required>
+                    </div>
+                    <div class="form-group half">
+                        <label for="test-samples">样品发出</label>
+                        <input type="number" id="test-samples" class="form-control" min="0" value="0" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="test-sales">销售额(元)</label>
+                    <input type="number" id="test-sales" class="form-control" min="0" value="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="test-notes">备注</label>
+                    <textarea id="test-notes" class="form-control" rows="3" placeholder="添加备注信息..."></textarea>
+                </div>
+                <div class="form-buttons">
+                    <button type="submit" class="btn btn-primary">提交表单</button>
+                    <button type="reset" class="btn btn-secondary">重置表单</button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- 测试通知 -->
+        <div class="test-section">
+            <h2 class="test-title">通知测试</h2>
+            <div class="test-buttons">
+                <button class="btn btn-primary" id="show-success">成功通知</button>
+                <button class="btn btn-secondary" id="show-info">信息通知</button>
+                <button class="btn btn-danger" id="show-error">错误通知</button>
+            </div>
+        </div>
+        
+        <!-- 测试页面导航 -->
+        <div class="test-section">
+            <h2 class="test-title">页面导航测试</h2>
+            <div class="page-container" style="height: 300px; border: 1px solid var(--border-color); margin-bottom: 20px;">
+                <div id="test-page-1" class="page page-current">
+                    <div style="padding: 20px;">
+                        <h3>页面 1</h3>
+                        <p>这是第一个测试页面的内容。</p>
+                    </div>
+                </div>
+                <div id="test-page-2" class="page page-next">
+                    <div style="padding: 20px;">
+                        <h3>页面 2</h3>
+                        <p>这是第二个测试页面的内容。</p>
+                    </div>
+                </div>
+                <div id="test-page-3" class="page page-next">
+                    <div style="padding: 20px;">
+                        <h3>页面 3</h3>
+                        <p>这是第三个测试页面的内容。</p>
+                    </div>
+                </div>
+            </div>
+            <div class="test-buttons">
+                <button class="btn btn-primary" id="goto-page-1">页面 1</button>
+                <button class="btn btn-secondary" id="goto-page-2">页面 2</button>
+                <button class="btn btn-secondary" id="goto-page-3">页面 3</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 弹窗模板 -->
+    <div class="modal-overlay" id="test-quick-add-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>快速添加数据</h3>
+                <button class="modal-close" id="close-test-quick-add">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="test-quick-form">
+                    <div class="form-group">
+                        <label for="quick-test-date">日期</label>
+                        <input type="date" id="quick-test-date" class="form-control" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label for="quick-test-wechat">微信添加</label>
+                            <input type="number" id="quick-test-wechat" class="form-control" min="0" value="0" required>
+                        </div>
+                        <div class="form-group half">
+                            <label for="quick-test-samples">样品发出</label>
+                            <input type="number" id="quick-test-samples" class="form-control" min="0" value="0" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="quick-test-sales">销售额(元)</label>
+                        <input type="number" id="quick-test-sales" class="form-control" min="0" value="0" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="quick-test-cancel" class="btn btn-secondary">取消</button>
+                <button id="quick-test-save" class="btn btn-primary">保存</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 通知容器 -->
+    <div id="test-notification" class="notification" style="display: none;">
+        <div class="notification-icon">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div id="test-notification-message">操作成功</div>
+    </div>
+    
+    <script>
+        // 初始化日期输入
+        document.querySelectorAll('input[type="date"]').forEach(input => {
+            input.value = new Date().toISOString().split('T')[0];
+        });
+        
+        // 欢迎屏幕测试
+        document.getElementById('show-welcome').addEventListener('click', () => {
+            const welcomePreview = document.getElementById('welcome-preview');
+            welcomePreview.style.display = welcomePreview.style.display === 'none' ? 'block' : 'none';
+        });
+        
+        // 弹窗测试
+        document.getElementById('show-quick-add').addEventListener('click', () => {
+            document.getElementById('test-quick-add-modal').classList.add('visible');
+        });
+        
+        document.getElementById('close-test-quick-add').addEventListener('click', () => {
+            document.getElementById('test-quick-add-modal').classList.remove('visible');
+        });
+        
+        document.getElementById('quick-test-cancel').addEventListener('click', () => {
+            document.getElementById('test-quick-add-modal').classList.remove('visible');
+        });
+        
+        // 通知测试
+        function showTestNotification(message, type) {
+            const notification = document.getElementById('test-notification');
+            const messageEl = document.getElementById('test-notification-message');
+            const iconEl = notification.querySelector('.notification-icon i');
+            
+            // 设置图标
+            if (type === 'success') {
+                iconEl.className = 'fas fa-check-circle';
+                notification.className = 'notification success';
+            } else if (type === 'error') {
+                iconEl.className = 'fas fa-times-circle';
+                notification.className = 'notification error';
+            } else {
+                iconEl.className = 'fas fa-info-circle';
+                notification.className = 'notification';
+            }
+            
+            // 设置消息
+            messageEl.textContent = message;
+            
+            // 显示通知
+            notification.style.display = 'flex';
+            
+            // 3秒后隐藏
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+        
+        document.getElementById('show-success').addEventListener('click', () => {
+            showTestNotification('操作成功完成！', 'success');
+        });
+        
+        document.getElementById('show-info').addEventListener('click', () => {
+            showTestNotification('这是一条信息通知', 'info');
+        });
+        
+        document.getElementById('show-error').addEventListener('click', () => {
+            showTestNotification('操作失败，请重试', 'error');
+        });
+        
+        // 页面导航测试
+        let currentTestPage = 'test-page-1';
+        
+        function navigateToTestPage(pageId) {
+            const currentPage = document.getElementById(currentTestPage);
+            const targetPage = document.getElementById(pageId);
+            
+            // 确定方向
+            const pages = ['test-page-1', 'test-page-2', 'test-page-3'];
+            const currentIndex = pages.indexOf(currentTestPage);
+            const targetIndex = pages.indexOf(pageId);
+            const direction = targetIndex > currentIndex ? 'next' : 'prev';
+            
+            // 设置过渡类
+            if (direction === 'next') {
+                currentPage.className = 'page page-prev';
+                targetPage.className = 'page page-current';
+            } else {
+                currentPage.className = 'page page-next';
+                targetPage.className = 'page page-current';
+            }
+            
+            // 更新当前页面
+            currentTestPage = pageId;
+            
+            // 更新按钮状态
+            document.querySelectorAll('[id^="goto-page-"]').forEach(btn => {
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-secondary');
+            });
+            
+            document.getElementById(`goto-${pageId}`).classList.remove('btn-secondary');
+            document.getElementById(`goto-${pageId}`).classList.add('btn-primary');
+        }
+        
+        document.getElementById('goto-page-1').addEventListener('click', () => {
+            navigateToTestPage('test-page-1');
+        });
+        
+        document.getElementById('goto-page-2').addEventListener('click', () => {
+            navigateToTestPage('test-page-2');
+        });
+        
+        document.getElementById('goto-page-3').addEventListener('click', () => {
+            navigateToTestPage('test-page-3');
+        });
+        
+        // 表单测试
+        document.getElementById('test-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            showTestNotification('表单提交成功！', 'success');
+        });
+    </script>
+</body>
+</html> 

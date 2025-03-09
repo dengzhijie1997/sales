@@ -1,7 +1,8 @@
-// 缓存名称
-const CACHE_NAME = 'coffee-sales-cache-v5';
+// Service Worker版本号
+const CACHE_VERSION = 'v2'; // 增加版本号，强制更新缓存
+const CACHE_NAME = `coffee-sales-cache-${CACHE_VERSION}`;
 
-// 需要缓存的资源
+// 需要缓存的资源列表
 const urlsToCache = [
   './',
   './index.html',
@@ -9,85 +10,81 @@ const urlsToCache = [
   './app.js',
   './firebase-config.js',
   './manifest.json',
-  './icon-72x72.png',
-  './icon-96x96.png',
-  './icon-128x128.png',
-  './icon-144x144.png',
-  './icon-152x152.png',
-  './icon-192x192.png',
-  './icon-384x384.png',
-  './icon-512x512.png',
+  './icons/icon-72x72.png',
+  './icons/icon-96x96.png',
+  './icons/icon-128x128.png',
+  './icons/icon-144x144.png',
+  './icons/icon-152x152.png',
+  './icons/icon-192x192.png',
+  './icons/icon-384x384.png',
+  './icons/icon-512x512.png',
   './clear-cache.js',
   './icon-test.html',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
   'https://cdn.jsdelivr.net/npm/chart.js'
 ];
 
-// 安装service worker时缓存资源
+// 安装Service Worker
 self.addEventListener('install', event => {
+  // 强制新的Service Worker立即接管
+  self.skipWaiting();
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('缓存已打开');
+        console.log('Cache opened');
         return cache.addAll(urlsToCache);
       })
-      .then(() => self.skipWaiting()) // 强制新SW接管页面
   );
 });
 
-// 激活service worker
+// 激活Service Worker
 self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
-  
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            // 删除不在白名单中的缓存
+          // 删除旧版本缓存
+          if (cacheName !== CACHE_NAME) {
+            console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
-    }).then(() => self.clients.claim()) // 控制所有客户端
+    }).then(() => {
+      console.log('New Service Worker activated');
+      return self.clients.claim();
+    })
   );
 });
 
-// 处理fetch请求，优先使用缓存
+// 拦截网络请求
 self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
-  
-  // 针对API请求，使用网络优先策略
+  // 不缓存后端API请求
   if (event.request.url.includes('firestore.googleapis.com')) {
-    event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match(event.request);
-      })
-    );
     return;
   }
-
-  // 对其他资源使用缓存优先策略
+  
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // 命中缓存，返回缓存的资源
+        // 如果找到缓存响应，则返回
         if (response) {
           return response;
         }
         
-        // 未命中缓存，从网络获取
+        // 否则进行网络请求
         return fetch(event.request).then(
           response => {
-            // 检查响应是否有效
-            if(!response || response.status !== 200 || response.type !== 'basic') {
+            // 确保响应有效
+            if (!response || response.status !== 200 || response.type !== 'basic') {
               return response;
             }
             
-            // 克隆响应以便同时使用和缓存
+            // 克隆响应（因为响应是流，只能使用一次）
             const responseToCache = response.clone();
             
-            // 更新缓存
+            // 将新响应添加到缓存
             caches.open(CACHE_NAME)
               .then(cache => {
                 cache.put(event.request, responseToCache);
@@ -96,10 +93,6 @@ self.addEventListener('fetch', event => {
             return response;
           }
         );
-      })
-      .catch(error => {
-        console.log('Fetch失败:', error);
-        // 尝试返回离线页面或者错误页面
       })
   );
 }); 

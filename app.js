@@ -3,12 +3,17 @@ let salesData = [];
 let filteredData = [];
 const itemsPerPage = 10; // 每页显示数据数量
 let currentPage = 1;
-let chartInstance = null;
-let unsubscribe = null; // Firebase实时监听取消函数
+let chartInstance = null; // 销售趋势图表实例
+let analysisChartInstance = null; // 分析页面图表实例
+let correlationChartInstance = null; // 关联分析图表实例
 let currentPageId = 'dashboard'; // 当前页面ID
+let unsubscribe = null; // Firebase实时监听取消函数
 
 // DOM元素加载完成后执行
 document.addEventListener('DOMContentLoaded', () => {
+    // 初始化欢迎屏幕
+    initWelcomeScreen();
+    
     // 初始化日期显示
     updateCurrentDate();
     
@@ -18,9 +23,52 @@ document.addEventListener('DOMContentLoaded', () => {
     // 初始化事件监听
     initEventListeners();
     
-    // 初始化转盘式日期选择器
-    initWheelDatePicker();
+    // 初始化页面
+    initPages();
 });
+
+// 初始化各页面
+function initPages() {
+    // 初始化数据分析页面
+    updateAnalysisForRange('month');
+    
+    // 初始化表单区域
+    const formSection = document.getElementById('data-form-section');
+    if (formSection) {
+        formSection.style.display = 'none';
+    }
+    
+    // 设置默认日期为今天
+    const dateInputs = document.querySelectorAll('input[type="date"]');
+    dateInputs.forEach(input => {
+        input.value = new Date().toISOString().split('T')[0];
+    });
+    
+    // 初始化弹窗
+    const modals = document.querySelectorAll('.modal-overlay');
+    modals.forEach(modal => {
+        // 点击遮罩层关闭弹窗
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal(modal.id);
+            }
+        });
+    });
+    
+    // 初始化表单提交事件
+    const salesForm = document.getElementById('sales-form');
+    if (salesForm) {
+        salesForm.addEventListener('submit', handleFormSubmit);
+    }
+    
+    const quickForm = document.getElementById('quick-form');
+    if (quickForm) {
+        quickForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleQuickFormSubmit();
+        });
+    }
+}
 
 // 更新当前日期显示
 function updateCurrentDate() {
@@ -43,6 +91,12 @@ function loadData() {
         renderTable();
         renderMonthlyData();
         updateExportYearOptions();
+        
+        // 更新今日概况
+        updateTodaySummary();
+        
+        // 更新最近数据
+        renderRecentData();
     });
     
     // 如果初始加载没有数据，显示提示信息
@@ -128,6 +182,163 @@ function initEventListeners() {
     
     // 初始哈希处理
     handleHashChange();
+    
+    // 快速添加按钮
+    const quickAddBtn = document.getElementById('quick-add-btn');
+    if (quickAddBtn) {
+        quickAddBtn.addEventListener('click', () => {
+            openQuickAddModal();
+        });
+    }
+    
+    // 快速添加弹窗相关
+    document.getElementById('close-quick-add')?.addEventListener('click', () => {
+        closeModal('quick-add-modal');
+    });
+    
+    document.getElementById('quick-cancel')?.addEventListener('click', () => {
+        closeModal('quick-add-modal');
+    });
+    
+    document.getElementById('quick-save')?.addEventListener('click', () => {
+        handleQuickFormSubmit();
+    });
+    
+    // 筛选按钮
+    document.getElementById('filter-btn')?.addEventListener('click', () => {
+        openFilterModal();
+    });
+    
+    document.getElementById('close-filter')?.addEventListener('click', () => {
+        closeModal('filter-modal');
+    });
+    
+    document.getElementById('filter-reset')?.addEventListener('click', () => {
+        resetFilters();
+    });
+    
+    document.getElementById('filter-apply')?.addEventListener('click', () => {
+        applyFilters();
+    });
+    
+    // 导出数据按钮
+    document.getElementById('export-data-btn')?.addEventListener('click', () => {
+        openExportModal();
+    });
+    
+    document.getElementById('close-export')?.addEventListener('click', () => {
+        closeModal('export-modal');
+    });
+    
+    document.getElementById('export-cancel')?.addEventListener('click', () => {
+        closeModal('export-modal');
+    });
+    
+    document.getElementById('export-confirm')?.addEventListener('click', () => {
+        handleExport();
+    });
+    
+    // 新建记录按钮
+    document.getElementById('new-entry-btn')?.addEventListener('click', () => {
+        showForm('add');
+    });
+    
+    // 关闭表单按钮
+    document.getElementById('close-form-btn')?.addEventListener('click', () => {
+        hideForm();
+    });
+    
+    // 重置表单按钮
+    document.getElementById('reset-form')?.addEventListener('click', () => {
+        resetForm();
+    });
+    
+    // 日期范围按钮
+    const dateRangeBtns = document.querySelectorAll('.date-range-btn');
+    dateRangeBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            dateRangeBtns.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            updateAnalysisForRange(this.dataset.range);
+        });
+    });
+    
+    // 图表类型切换
+    const chartTypeBtns = document.querySelectorAll('.chart-type-btn');
+    chartTypeBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            chartTypeBtns.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            updateAnalysisChartType(this.dataset.type);
+        });
+    });
+    
+    // 刷新总览按钮
+    document.getElementById('refresh-dashboard')?.addEventListener('click', () => {
+        refreshDashboard();
+    });
+    
+    // 确保所有按钮都有事件监听
+    document.querySelectorAll('[id]').forEach(el => {
+        const id = el.id;
+        
+        // 处理特定按钮
+        if (id === 'quick-add-btn' && !el.hasEventListener) {
+            el.addEventListener('click', openQuickAddModal);
+            el.hasEventListener = true;
+        }
+        
+        if (id === 'new-entry-btn' && !el.hasEventListener) {
+            el.addEventListener('click', () => showForm('add'));
+            el.hasEventListener = true;
+        }
+        
+        if (id === 'close-form-btn' && !el.hasEventListener) {
+            el.addEventListener('click', hideForm);
+            el.hasEventListener = true;
+        }
+        
+        if (id === 'reset-form' && !el.hasEventListener) {
+            el.addEventListener('click', resetForm);
+            el.hasEventListener = true;
+        }
+        
+        if (id === 'filter-btn' && !el.hasEventListener) {
+            el.addEventListener('click', openFilterModal);
+            el.hasEventListener = true;
+        }
+        
+        if (id === 'export-data-btn' && !el.hasEventListener) {
+            el.addEventListener('click', openExportModal);
+            el.hasEventListener = true;
+        }
+        
+        if (id === 'refresh-dashboard' && !el.hasEventListener) {
+            el.addEventListener('click', refreshDashboard);
+            el.hasEventListener = true;
+        }
+    });
+    
+    // 处理表格行点击事件
+    document.addEventListener('click', function(e) {
+        // 编辑按钮点击
+        if (e.target.classList.contains('edit-btn') || e.target.closest('.edit-btn')) {
+            const row = e.target.closest('tr');
+            const itemId = row.dataset.id;
+            if (itemId) {
+                showForm('edit', itemId);
+            }
+        }
+        
+        // 删除按钮点击
+        if (e.target.classList.contains('delete-btn') || e.target.closest('.delete-btn')) {
+            const row = e.target.closest('tr');
+            const itemId = row.dataset.id;
+            if (itemId) {
+                handleDelete({ target: e.target, itemId });
+            }
+        }
+    });
 }
 
 // 处理哈希变化
@@ -179,295 +390,110 @@ function navigateToPage(pageId) {
 
 // 初始化转盘式日期选择器
 function initWheelDatePicker() {
-    const container = document.getElementById('wheel-date-picker');
     const dateInput = document.getElementById('date');
     const now = new Date();
     
-    // 创建年轮盘
-    const yearWheel = document.createElement('div');
-    yearWheel.className = 'wheel-container';
+    // 简单起见，先使用普通日期输入框
+    dateInput.type = 'date';
+    dateInput.value = now.toISOString().split('T')[0];
+    dateInput.style.display = 'block';
     
-    // 创建月轮盘
-    const monthWheel = document.createElement('div');
-    monthWheel.className = 'wheel';
-    
-    // 创建日轮盘
-    const dayWheel = document.createElement('div');
-    dayWheel.className = 'wheel';
-    
-    // 添加高亮区域
-    const yearHighlight = document.createElement('div');
-    yearHighlight.className = 'wheel-highlight';
-    yearWheel.appendChild(yearHighlight);
-    
-    const monthHighlight = document.createElement('div');
-    monthHighlight.className = 'wheel-highlight';
-    monthWheel.appendChild(monthHighlight);
-    
-    const dayHighlight = document.createElement('div');
-    dayHighlight.className = 'wheel-highlight';
-    dayWheel.appendChild(dayHighlight);
-    
-    // 生成年份选项 (当前年份和前后2年)
-    const currentYear = now.getFullYear();
-    for (let i = currentYear - 2; i <= currentYear + 2; i++) {
-        const yearItem = document.createElement('div');
-        yearItem.className = 'wheel-item';
-        yearItem.textContent = i;
-        yearItem.dataset.value = i;
-        yearWheel.appendChild(yearItem);
+    // 隐藏转盘容器
+    const wheelContainer = document.getElementById('wheel-date-picker');
+    if (wheelContainer) {
+        wheelContainer.style.display = 'none';
     }
-    
-    // 生成月份选项
-    const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-    for (let i = 0; i < 12; i++) {
-        const monthItem = document.createElement('div');
-        monthItem.className = 'wheel-item';
-        monthItem.textContent = monthNames[i];
-        monthItem.dataset.value = i + 1;
-        monthWheel.appendChild(monthItem);
-    }
-    
-    // 添加各部分到容器
-    container.appendChild(yearWheel);
-    container.appendChild(monthWheel);
-    container.appendChild(dayWheel);
-    
-    // 初始化日期
-    const currentMonth = now.getMonth() + 1;
-    const currentDay = now.getDate();
-    
-    // 初始化显示当前日期
-    updateDayWheel(currentYear, currentMonth);
-    positionWheelItems(yearWheel, currentYear);
-    positionWheelItems(monthWheel, currentMonth);
-    positionWheelItems(dayWheel, currentDay);
-    
-    // 更新隐藏的日期输入字段
-    updateDateInput(currentYear, currentMonth, currentDay);
-    
-    // 添加滚动事件或点击事件
-    addWheelEvents(yearWheel, value => {
-        const month = parseInt(getSelectedValue(monthWheel));
-        updateDayWheel(value, month);
-        updateDateInput(value, month, parseInt(getSelectedValue(dayWheel)));
-    });
-    
-    addWheelEvents(monthWheel, value => {
-        const year = parseInt(getSelectedValue(yearWheel));
-        updateDayWheel(year, value);
-        updateDateInput(year, value, parseInt(getSelectedValue(dayWheel)));
-    });
-    
-    addWheelEvents(dayWheel, value => {
-        const year = parseInt(getSelectedValue(yearWheel));
-        const month = parseInt(getSelectedValue(monthWheel));
-        updateDateInput(year, month, value);
-    });
-}
-
-// 更新日期输入字段
-function updateDateInput(year, month, day) {
-    const dateInput = document.getElementById('date');
-    const formattedMonth = month.toString().padStart(2, '0');
-    const formattedDay = day.toString().padStart(2, '0');
-    dateInput.value = `${year}-${formattedMonth}-${formattedDay}`;
-}
-
-// 更新日轮盘
-function updateDayWheel(year, month) {
-    const dayWheel = document.querySelectorAll('.wheel')[2];
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const currentDay = Math.min(parseInt(getSelectedValue(dayWheel) || 1), daysInMonth);
-    
-    // 清除现有日期选项
-    Array.from(dayWheel.querySelectorAll('.wheel-item')).forEach(item => {
-        dayWheel.removeChild(item);
-    });
-    
-    // 生成日期选项
-    for (let i = 1; i <= daysInMonth; i++) {
-        const dayItem = document.createElement('div');
-        dayItem.className = 'wheel-item';
-        dayItem.textContent = i;
-        dayItem.dataset.value = i;
-        dayWheel.appendChild(dayItem);
-    }
-    
-    // 重新定位日轮盘
-    positionWheelItems(dayWheel, currentDay);
-}
-
-// 添加轮盘事件
-function addWheelEvents(wheel, onChange) {
-    let startY, currentY;
-    let selectedIndex = 0;
-    
-    // 鼠标/触摸开始
-    wheel.addEventListener('mousedown', startDrag);
-    wheel.addEventListener('touchstart', e => {
-        e.preventDefault();
-        startDrag(e.touches[0]);
-    });
-    
-    // 鼠标/触摸移动
-    document.addEventListener('mousemove', drag);
-    document.addEventListener('touchmove', e => {
-        e.preventDefault();
-        drag(e.touches[0]);
-    });
-    
-    // 鼠标/触摸结束
-    document.addEventListener('mouseup', endDrag);
-    document.addEventListener('touchend', endDrag);
-    
-    // 点击选择
-    wheel.addEventListener('click', e => {
-        if (e.target.classList.contains('wheel-item')) {
-            const value = parseInt(e.target.dataset.value);
-            positionWheelItems(wheel, value);
-            onChange(value);
-        }
-    });
-    
-    function startDrag(e) {
-        startY = e.clientY;
-        wheel.style.transition = 'none';
-    }
-    
-    function drag(e) {
-        if (!startY) return;
-        
-        currentY = e.clientY;
-        const diff = currentY - startY;
-        
-        // 移动轮盘项
-        const items = wheel.querySelectorAll('.wheel-item');
-        items.forEach(item => {
-            const top = parseInt(item.style.top || 0);
-            item.style.top = `${top + diff}px`;
-        });
-        
-        startY = currentY;
-    }
-    
-    function endDrag() {
-        if (!startY) return;
-        
-        // 找到最接近中心的项
-        const items = wheel.querySelectorAll('.wheel-item');
-        let closestItem = null;
-        let minDistance = Infinity;
-        
-        const wheelRect = wheel.getBoundingClientRect();
-        const centerY = wheelRect.top + wheelRect.height / 2;
-        
-        items.forEach(item => {
-            const itemRect = item.getBoundingClientRect();
-            const itemCenterY = itemRect.top + itemRect.height / 2;
-            const distance = Math.abs(centerY - itemCenterY);
-            
-            if (distance < minDistance) {
-                minDistance = distance;
-                closestItem = item;
-            }
-        });
-        
-        if (closestItem) {
-            const value = parseInt(closestItem.dataset.value);
-            positionWheelItems(wheel, value);
-            onChange(value);
-        }
-        
-        startY = null;
-        wheel.style.transition = '';
-    }
-}
-
-// 定位轮盘项
-function positionWheelItems(wheel, selectedValue) {
-    const items = wheel.querySelectorAll('.wheel-item');
-    const itemHeight = 40; // 轮盘项高度
-    
-    items.forEach(item => {
-        const value = parseInt(item.dataset.value);
-        const offset = (value - selectedValue) * itemHeight;
-        item.style.top = `calc(50% - 20px + ${offset}px)`;
-        
-        // 调整透明度
-        const distance = Math.abs(value - selectedValue);
-        item.style.opacity = distance === 0 ? 1 : Math.max(0.3, 1 - distance * 0.2);
-    });
-}
-
-// 获取当前选中值
-function getSelectedValue(wheel) {
-    const items = wheel.querySelectorAll('.wheel-item');
-    let selectedItem = null;
-    let maxOpacity = 0;
-    
-    items.forEach(item => {
-        const opacity = parseFloat(item.style.opacity || 0);
-        if (opacity > maxOpacity) {
-            maxOpacity = opacity;
-            selectedItem = item;
-        }
-    });
-    
-    return selectedItem ? selectedItem.dataset.value : null;
 }
 
 // 处理表单提交
 function handleFormSubmit(e) {
     e.preventDefault();
     
-    const dateInput = document.getElementById('date');
-    const wechatInput = document.getElementById('wechat');
-    const samplesInput = document.getElementById('samples');
-    const salesInput = document.getElementById('sales');
+    const date = document.getElementById('date').value;
+    const wechat = document.getElementById('wechat').value;
+    const samples = document.getElementById('samples').value;
+    const sales = document.getElementById('sales').value;
+    const notes = document.getElementById('notes')?.value || '';
     
-    // 获取表单数据
-    const date = dateInput.value;
-    const wechat = parseInt(wechatInput.value);
-    const samples = parseInt(samplesInput.value);
-    const sales = parseFloat(salesInput.value);
-    
-    // 验证数据
-    if (!date || isNaN(wechat) || isNaN(samples) || isNaN(sales)) {
-        showNotification('请填写所有字段并确保数据格式正确', 'error');
+    if (!date) {
+        showNotification('请选择日期', 'error');
         return;
     }
     
-    // 检查是否已有该日期的数据
-    const existingEntry = salesData.find(item => item.date === date);
+    // 检查是否是编辑模式
+    const itemId = e.target.dataset.itemId;
     
-    if (existingEntry) {
-        // 更新现有数据
-        showConfirmDialog(
-            '数据已存在',
-            `${formatDate(date)} 的数据已存在，是否覆盖？`,
-            async () => {
-                // 使用Firebase更新记录
-                const success = await updateSalesRecord(existingEntry.id, { date, wechat, samples, sales });
-                if (success) {
-                    resetForm();
-                    showNotification('数据更新成功');
-                } else {
-                    showNotification('数据更新失败，请重试', 'error');
+    try {
+        if (itemId) {
+            // 编辑现有数据
+            const index = salesData.findIndex(item => item.id === itemId);
+            if (index !== -1) {
+                salesData[index] = {
+                    ...salesData[index],
+                    date,
+                    wechat: parseInt(wechat || 0),
+                    samples: parseInt(samples || 0),
+                    sales: parseInt(sales || 0),
+                    notes
+                };
+                
+                // 更新Firebase
+                if (firebase.apps.length) {
+                    const db = firebase.firestore();
+                    db.collection('salesData').doc(itemId).update({
+                        date,
+                        wechat: parseInt(wechat || 0),
+                        samples: parseInt(samples || 0),
+                        sales: parseInt(sales || 0),
+                        notes
+                    }).catch(error => {
+                        console.error('更新数据时出错:', error);
+                    });
                 }
+                
+                showNotification('数据已更新');
             }
-        );
-    } else {
-        // 添加新数据到Firebase
-        addSalesRecord({ date, wechat, samples, sales })
-            .then(success => {
-                if (success) {
-                    resetForm();
-                    showNotification('数据添加成功');
-                } else {
-                    showNotification('数据添加失败，请重试', 'error');
-                }
-            });
+        } else {
+            // 添加新数据
+            const newItem = {
+                date,
+                wechat: parseInt(wechat || 0),
+                samples: parseInt(samples || 0),
+                sales: parseInt(sales || 0),
+                notes,
+                id: Date.now().toString()
+            };
+            
+            salesData.push(newItem);
+            
+            // 添加到Firebase
+            if (firebase.apps.length) {
+                const db = firebase.firestore();
+                db.collection('salesData').add(newItem).catch(error => {
+                    console.error('添加数据时出错:', error);
+                });
+            }
+            
+            showNotification('数据已添加');
+        }
+        
+        // 更新过滤数据
+        filteredData = [...salesData];
+        
+        // 更新UI
+        updateStatistics();
+        updateChart();
+        renderTable();
+        renderRecentData();
+        updateTodaySummary();
+        
+        // 重置表单并隐藏
+        resetForm();
+        hideForm();
+        
+    } catch (error) {
+        console.error('处理表单提交时出错:', error);
+        showNotification('操作失败: ' + error.message, 'error');
     }
 }
 
@@ -610,11 +636,17 @@ function renderTable() {
         const actionsCell = document.createElement('td');
         actionsCell.className = 'actions';
         
+        const editButton = document.createElement('button');
+        editButton.className = 'edit-btn';
+        editButton.innerHTML = '<i class="fas fa-edit"></i>';
+        editButton.addEventListener('click', () => showForm('edit', item.id));
+        
         const deleteButton = document.createElement('button');
         deleteButton.className = 'delete-btn';
         deleteButton.innerHTML = '<i class="fas fa-trash"></i>';
-        deleteButton.addEventListener('click', handleDelete);
+        deleteButton.addEventListener('click', () => handleDelete({ target: e.target, itemId: item.id }));
         
+        actionsCell.appendChild(editButton);
         actionsCell.appendChild(deleteButton);
         
         // 将单元格添加到行
@@ -1409,4 +1441,627 @@ async function handleRestoreFile(event) {
     
     // 重置文件输入框，以便可以选择相同文件
     event.target.value = '';
+}
+
+// 初始化欢迎屏幕
+function initWelcomeScreen() {
+    // 更新欢迎语
+    updateGreeting();
+    
+    // 两秒后隐藏欢迎屏幕
+    setTimeout(() => {
+        const welcomeScreen = document.getElementById('welcome-screen');
+        if (welcomeScreen) {
+            welcomeScreen.classList.add('hidden');
+            
+            // 完全移除欢迎屏幕DOM
+            setTimeout(() => {
+                welcomeScreen.remove();
+            }, 500);
+        }
+    }, 2500);
+}
+
+// 更新欢迎语
+function updateGreeting() {
+    const greetingEl = document.getElementById('greeting-text');
+    const welcomeMessageEl = document.getElementById('welcome-message');
+    const now = new Date();
+    const hour = now.getHours();
+    
+    let greeting = '';
+    if (hour >= 5 && hour < 12) {
+        greeting = '早上好！';
+    } else if (hour >= 12 && hour < 18) {
+        greeting = '下午好！';
+    } else {
+        greeting = '晚上好！';
+    }
+    
+    if (greetingEl) {
+        greetingEl.textContent = greeting;
+    }
+    
+    if (welcomeMessageEl) {
+        const randomMessages = [
+            "正在准备您的咖啡销售数据...",
+            "为您温暖一杯数据拿铁...",
+            "今天又是充满咖啡香的一天...",
+            "给数据加点糖和奶泡...",
+            "新鲜数据，正在萃取中..."
+        ];
+        welcomeMessageEl.textContent = randomMessages[Math.floor(Math.random() * randomMessages.length)];
+    }
+}
+
+// 更新今日概况
+function updateTodaySummary() {
+    const summaryEl = document.getElementById('today-summary');
+    const today = new Date().toISOString().split('T')[0];
+    
+    const todayData = salesData.filter(item => item.date === today);
+    
+    if (todayData.length > 0) {
+        const totalWechat = todayData.reduce((sum, item) => sum + parseInt(item.wechat || 0), 0);
+        const totalSamples = todayData.reduce((sum, item) => sum + parseInt(item.samples || 0), 0);
+        const totalSales = todayData.reduce((sum, item) => sum + parseInt(item.sales || 0), 0);
+        
+        summaryEl.innerHTML = `今日已添加 <strong>${totalWechat}</strong> 位微信好友，发出 <strong>${totalSamples}</strong> 份样品，销售额 <strong>¥${totalSales}</strong>`;
+    } else {
+        summaryEl.textContent = '今日尚无销售数据，立即添加新的记录？';
+    }
+}
+
+// 渲染最近数据
+function renderRecentData() {
+    const recentDataEl = document.getElementById('recent-data');
+    if (!recentDataEl) return;
+    
+    // 清空现有内容
+    recentDataEl.innerHTML = '';
+    
+    // 获取最近5条数据
+    const recentData = [...salesData].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+    
+    if (recentData.length === 0) {
+        recentDataEl.innerHTML = `
+            <div class="empty-data-message">
+                <i class="fas fa-inbox"></i>
+                <p>暂无数据记录</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // 渲染数据卡片
+    recentData.forEach(item => {
+        const date = new Date(item.date);
+        const formattedDate = date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
+        
+        const card = document.createElement('div');
+        card.className = 'data-card';
+        card.innerHTML = `
+            <div class="data-card-date">${formattedDate}</div>
+            <div class="data-card-info">
+                <div class="data-card-stat">
+                    <i class="fab fa-weixin"></i>
+                    <span>${item.wechat}</span>
+                </div>
+                <div class="data-card-stat">
+                    <i class="fas fa-box"></i>
+                    <span>${item.samples}</span>
+                </div>
+                <div class="data-card-stat">
+                    <i class="fas fa-yen-sign"></i>
+                    <span>¥${item.sales}</span>
+                </div>
+            </div>
+        `;
+        
+        recentDataEl.appendChild(card);
+    });
+}
+
+// 打开快速添加弹窗
+function openQuickAddModal() {
+    // 设置默认日期为今天
+    document.getElementById('quick-date').value = new Date().toISOString().split('T')[0];
+    
+    // 打开弹窗
+    openModal('quick-add-modal');
+}
+
+// 处理快速添加表单提交
+function handleQuickFormSubmit() {
+    const date = document.getElementById('quick-date').value;
+    const wechat = document.getElementById('quick-wechat').value;
+    const samples = document.getElementById('quick-samples').value;
+    const sales = document.getElementById('quick-sales').value;
+    
+    if (!date) {
+        showNotification('请选择日期', 'error');
+        return;
+    }
+    
+    // 创建新数据项
+    const newItem = {
+        date,
+        wechat: parseInt(wechat || 0),
+        samples: parseInt(samples || 0),
+        sales: parseInt(sales || 0),
+        id: Date.now().toString()
+    };
+    
+    try {
+        // 直接添加到本地数据
+        salesData.push(newItem);
+        filteredData = [...salesData];
+        
+        // 更新表格和统计信息
+        updateStatistics();
+        updateChart();
+        renderTable();
+        renderRecentData();
+        updateTodaySummary();
+        
+        // 添加到Firebase (如果已连接)
+        if (firebase.apps.length) {
+            const db = firebase.firestore();
+            db.collection('salesData').add(newItem)
+                .then(() => {
+                    console.log('数据已添加到Firebase');
+                })
+                .catch(error => {
+                    console.error('添加数据到Firebase时出错:', error);
+                    showNotification('数据已保存本地，但同步到云端失败', 'warning');
+                });
+        }
+        
+        // 关闭弹窗
+        closeModal('quick-add-modal');
+        
+        // 显示成功通知
+        showNotification('数据添加成功！');
+    } catch (error) {
+        console.error('添加数据时出错:', error);
+        showNotification('添加数据失败: ' + error.message, 'error');
+    }
+}
+
+// 打开弹窗
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('visible');
+        
+        // 如果是快速添加弹窗，设置默认日期为今天
+        if (modalId === 'quick-add-modal') {
+            document.getElementById('quick-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('quick-wechat').value = '0';
+            document.getElementById('quick-samples').value = '0';
+            document.getElementById('quick-sales').value = '0';
+        }
+    }
+}
+
+// 关闭弹窗
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('visible');
+    }
+}
+
+// 打开筛选弹窗
+function openFilterModal() {
+    openModal('filter-modal');
+}
+
+// 重置筛选条件
+function resetFilters() {
+    document.getElementById('filter-date-from').value = '';
+    document.getElementById('filter-date-to').value = '';
+    document.getElementById('filter-sales-min').value = '';
+    document.getElementById('filter-sales-max').value = '';
+}
+
+// 应用筛选条件
+function applyFilters() {
+    const dateFrom = document.getElementById('filter-date-from').value;
+    const dateTo = document.getElementById('filter-date-to').value;
+    const salesMin = document.getElementById('filter-sales-min').value;
+    const salesMax = document.getElementById('filter-sales-max').value;
+    
+    filteredData = [...salesData];
+    
+    // 应用日期筛选
+    if (dateFrom) {
+        filteredData = filteredData.filter(item => item.date >= dateFrom);
+    }
+    
+    if (dateTo) {
+        filteredData = filteredData.filter(item => item.date <= dateTo);
+    }
+    
+    // 应用销售额筛选
+    if (salesMin) {
+        filteredData = filteredData.filter(item => parseInt(item.sales) >= parseInt(salesMin));
+    }
+    
+    if (salesMax) {
+        filteredData = filteredData.filter(item => parseInt(item.sales) <= parseInt(salesMax));
+    }
+    
+    // 重新渲染表格
+    currentPage = 1;
+    renderTable();
+    
+    // 关闭弹窗
+    closeModal('filter-modal');
+    
+    // 显示通知
+    showNotification(`已筛选出 ${filteredData.length} 条数据`);
+}
+
+// 打开导出弹窗
+function openExportModal() {
+    openModal('export-modal');
+}
+
+// 处理导出
+function handleExport() {
+    const format = document.querySelector('input[name="export-format"]:checked').value;
+    const range = document.querySelector('.export-range-btn.active').dataset.range;
+    
+    exportData(range);
+    closeModal('export-modal');
+}
+
+// 显示表单
+function showForm(mode, itemId = null) {
+    const formSection = document.getElementById('data-form-section');
+    const formTitle = document.getElementById('form-title');
+    
+    if (formSection) {
+        formSection.classList.add('active');
+    }
+    
+    // 设置表单标题
+    if (formTitle) {
+        formTitle.textContent = mode === 'add' ? '添加新记录' : '编辑记录';
+    }
+    
+    // 重置表单
+    resetForm();
+    
+    // 如果是编辑模式，填充数据
+    if (mode === 'edit' && itemId) {
+        fillFormWithData(itemId);
+    } else {
+        // 添加模式，设置今天的日期
+        document.getElementById('date').value = new Date().toISOString().split('T')[0];
+    }
+}
+
+// 隐藏表单
+function hideForm() {
+    const formSection = document.getElementById('data-form-section');
+    if (formSection) {
+        formSection.classList.remove('active');
+    }
+}
+
+// 用数据填充表单
+function fillFormWithData(itemId) {
+    const item = salesData.find(data => data.id === itemId);
+    if (!item) return;
+    
+    document.getElementById('date').value = item.date;
+    document.getElementById('wechat').value = item.wechat;
+    document.getElementById('samples').value = item.samples;
+    document.getElementById('sales').value = item.sales;
+    document.getElementById('notes').value = item.notes || '';
+    
+    // 将ID存储在表单中，用于更新
+    document.getElementById('sales-form').dataset.itemId = itemId;
+}
+
+// 更新分析页面的日期范围
+function updateAnalysisForRange(range) {
+    // 根据选择的范围更新分析页面
+    let periodText = '';
+    const now = new Date();
+    
+    switch (range) {
+        case 'month':
+            periodText = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' });
+            break;
+        case 'quarter':
+            const quarter = Math.floor(now.getMonth() / 3) + 1;
+            periodText = `${now.getFullYear()}年第${quarter}季度`;
+            break;
+        case 'year':
+            periodText = `${now.getFullYear()}年`;
+            break;
+        case 'custom':
+            periodText = '自定义日期范围';
+            break;
+    }
+    
+    document.getElementById('analysis-period').textContent = periodText;
+    
+    // 更新图表和分析数据
+    updateAnalysisCharts(range);
+}
+
+// 更新分析图表类型
+function updateAnalysisChartType(type) {
+    // 根据选择的图表类型更新
+    if (analysisChartInstance) {
+        analysisChartInstance.config.type = type;
+        analysisChartInstance.update();
+    }
+}
+
+// 更新分析图表
+function updateAnalysisCharts(range) {
+    // 清除旧图表
+    if (analysisChartInstance) {
+        analysisChartInstance.destroy();
+    }
+    if (correlationChartInstance) {
+        correlationChartInstance.destroy();
+    }
+    
+    // 准备数据
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    
+    let filteredSalesData = [...salesData];
+    let labels = [];
+    let wechatData = [];
+    let samplesData = [];
+    let salesAmountData = [];
+    
+    // 根据选择的范围筛选数据
+    switch(range) {
+        case 'month':
+            // 本月数据
+            const monthStart = new Date(currentYear, currentMonth, 1).toISOString().split('T')[0];
+            const monthEnd = new Date(currentYear, currentMonth + 1, 0).toISOString().split('T')[0];
+            filteredSalesData = salesData.filter(item => item.date >= monthStart && item.date <= monthEnd);
+            
+            // 按日期分组
+            for (let i = 1; i <= 31; i++) {
+                const day = i < 10 ? `0${i}` : `${i}`;
+                const dateStr = `${currentYear}-${(currentMonth + 1).toString().padStart(2, '0')}-${day}`;
+                
+                if (new Date(dateStr).getMonth() === currentMonth) {
+                    const dayData = filteredSalesData.filter(item => item.date === dateStr);
+                    
+                    labels.push(i + '日');
+                    wechatData.push(dayData.reduce((sum, item) => sum + parseInt(item.wechat || 0), 0));
+                    samplesData.push(dayData.reduce((sum, item) => sum + parseInt(item.samples || 0), 0));
+                    salesAmountData.push(dayData.reduce((sum, item) => sum + parseInt(item.sales || 0), 0));
+                }
+            }
+            break;
+            
+        case 'quarter':
+            // 本季度数据
+            const quarter = Math.floor(currentMonth / 3);
+            const quarterStart = new Date(currentYear, quarter * 3, 1).toISOString().split('T')[0];
+            const quarterEnd = new Date(currentYear, (quarter + 1) * 3, 0).toISOString().split('T')[0];
+            filteredSalesData = salesData.filter(item => item.date >= quarterStart && item.date <= quarterEnd);
+            
+            // 按月分组
+            for (let i = 0; i < 3; i++) {
+                const monthIndex = quarter * 3 + i;
+                const monthName = new Date(currentYear, monthIndex, 1).toLocaleDateString('zh-CN', { month: 'long' });
+                
+                const monthStart = new Date(currentYear, monthIndex, 1).toISOString().split('T')[0];
+                const monthEnd = new Date(currentYear, monthIndex + 1, 0).toISOString().split('T')[0];
+                const monthData = filteredSalesData.filter(item => item.date >= monthStart && item.date <= monthEnd);
+                
+                labels.push(monthName);
+                wechatData.push(monthData.reduce((sum, item) => sum + parseInt(item.wechat || 0), 0));
+                samplesData.push(monthData.reduce((sum, item) => sum + parseInt(item.samples || 0), 0));
+                salesAmountData.push(monthData.reduce((sum, item) => sum + parseInt(item.sales || 0), 0));
+            }
+            break;
+            
+        case 'year':
+            // 全年数据
+            const yearStart = new Date(currentYear, 0, 1).toISOString().split('T')[0];
+            const yearEnd = new Date(currentYear, 11, 31).toISOString().split('T')[0];
+            filteredSalesData = salesData.filter(item => item.date >= yearStart && item.date <= yearEnd);
+            
+            // 按月分组
+            for (let i = 0; i < 12; i++) {
+                const monthName = new Date(currentYear, i, 1).toLocaleDateString('zh-CN', { month: 'short' });
+                
+                const monthStart = new Date(currentYear, i, 1).toISOString().split('T')[0];
+                const monthEnd = new Date(currentYear, i + 1, 0).toISOString().split('T')[0];
+                const monthData = filteredSalesData.filter(item => item.date >= monthStart && item.date <= monthEnd);
+                
+                labels.push(monthName);
+                wechatData.push(monthData.reduce((sum, item) => sum + parseInt(item.wechat || 0), 0));
+                samplesData.push(monthData.reduce((sum, item) => sum + parseInt(item.samples || 0), 0));
+                salesAmountData.push(monthData.reduce((sum, item) => sum + parseInt(item.sales || 0), 0));
+            }
+            break;
+            
+        default:
+            // 默认显示最近30天
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0];
+            filteredSalesData = salesData.filter(item => item.date >= thirtyDaysAgoStr);
+            
+            // 按周分组
+            const weeks = {};
+            filteredSalesData.forEach(item => {
+                const date = new Date(item.date);
+                const weekNumber = getWeekNumber(date);
+                const weekKey = `${date.getFullYear()}-W${weekNumber}`;
+                
+                if (!weeks[weekKey]) {
+                    weeks[weekKey] = {
+                        wechat: 0,
+                        samples: 0,
+                        sales: 0
+                    };
+                }
+                
+                weeks[weekKey].wechat += parseInt(item.wechat || 0);
+                weeks[weekKey].samples += parseInt(item.samples || 0);
+                weeks[weekKey].sales += parseInt(item.sales || 0);
+            });
+            
+            // 转换为数组
+            Object.keys(weeks).forEach(weekKey => {
+                labels.push(weekKey);
+                wechatData.push(weeks[weekKey].wechat);
+                samplesData.push(weeks[weekKey].samples);
+                salesAmountData.push(weeks[weekKey].sales);
+            });
+    }
+    
+    // 更新分析摘要
+    updateAnalysisSummary(wechatData, samplesData, salesAmountData);
+    
+    // 创建分析图表
+    const ctx = document.getElementById('analysis-chart');
+    if (ctx) {
+        const chartType = document.querySelector('.chart-type-btn.active')?.dataset.type || 'bar';
+        
+        analysisChartInstance = new Chart(ctx, {
+            type: chartType,
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '微信添加',
+                        data: wechatData,
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: '样品发出',
+                        data: samplesData,
+                        backgroundColor: 'rgba(255, 206, 86, 0.5)',
+                        borderColor: 'rgba(255, 206, 86, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: '销售额',
+                        data: salesAmountData,
+                        backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+    
+    // 创建关联分析图表
+    const corrCtx = document.getElementById('correlation-chart');
+    if (corrCtx) {
+        // 计算样品转化率
+        const conversionData = [];
+        for (let i = 0; i < samplesData.length; i++) {
+            const conversion = samplesData[i] > 0 ? (salesAmountData[i] / samplesData[i]).toFixed(2) : 0;
+            conversionData.push(conversion);
+        }
+        
+        correlationChartInstance = new Chart(corrCtx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '样品转化率',
+                        data: conversionData,
+                        backgroundColor: 'rgba(153, 102, 255, 0.5)',
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: '每份样品平均销售额'
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+// 更新分析摘要
+function updateAnalysisSummary(wechatData, samplesData, salesData) {
+    // 计算总数
+    const totalWechat = wechatData.reduce((sum, val) => sum + val, 0);
+    const totalSamples = samplesData.reduce((sum, val) => sum + val, 0);
+    const totalSales = salesData.reduce((sum, val) => sum + val, 0);
+    
+    // 计算转化率
+    const conversionRate = totalSamples > 0 ? ((totalSales / totalSamples) * 100).toFixed(1) : 0;
+    
+    // 计算趋势
+    let salesTrend = 0;
+    if (salesData.length >= 2) {
+        const firstHalf = salesData.slice(0, Math.floor(salesData.length / 2));
+        const secondHalf = salesData.slice(Math.floor(salesData.length / 2));
+        
+        const firstHalfTotal = firstHalf.reduce((sum, val) => sum + val, 0);
+        const secondHalfTotal = secondHalf.reduce((sum, val) => sum + val, 0);
+        
+        if (firstHalfTotal > 0) {
+            salesTrend = ((secondHalfTotal - firstHalfTotal) / firstHalfTotal * 100).toFixed(1);
+        }
+    }
+    
+    // 更新UI
+    document.getElementById('analysis-trend').innerHTML = `销售额增长率 <span class="${salesTrend >= 0 ? 'positive' : 'negative'}">${salesTrend >= 0 ? '+' : ''}${salesTrend}%</span>`;
+    document.getElementById('analysis-conversion').innerHTML = `样品转化率 <span>${conversionRate}%</span>`;
+}
+
+// 刷新总览
+function refreshDashboard() {
+    // 刷新按钮旋转动画
+    const refreshBtn = document.getElementById('refresh-dashboard');
+    if (refreshBtn) {
+        refreshBtn.classList.add('rotating');
+        setTimeout(() => {
+            refreshBtn.classList.remove('rotating');
+        }, 1000);
+    }
+    
+    // 重新加载数据
+    refreshData();
+    
+    // 显示通知
+    showNotification('数据已刷新');
 } 

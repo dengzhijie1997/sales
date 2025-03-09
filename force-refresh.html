@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>强制刷新工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            background-color: #000;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .button:hover {
+            background-color: #333;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>强制刷新工具</h1>
+    <p>如果您的网站界面没有正确更新，请使用以下按钮清除缓存并强制刷新。</p>
+    
+    <button class="button" id="clear-cache">清除所有缓存</button>
+    <button class="button" id="unregister-sw">注销Service Worker</button>
+    <button class="button" id="reload-page">强制刷新页面</button>
+    <button class="button" id="go-to-index">返回首页</button>
+    
+    <div class="status" id="status"></div>
+    
+    <script>
+        const statusEl = document.getElementById('status');
+        
+        // 清除所有缓存
+        document.getElementById('clear-cache').addEventListener('click', async () => {
+            try {
+                statusEl.textContent = '正在清除缓存...';
+                
+                // 清除所有缓存
+                const cacheNames = await caches.keys();
+                await Promise.all(cacheNames.map(name => caches.delete(name)));
+                
+                statusEl.textContent = '✅ 所有缓存已清除!';
+            } catch (error) {
+                statusEl.textContent = `❌ 清除缓存失败: ${error.message}`;
+            }
+        });
+        
+        // 注销Service Worker
+        document.getElementById('unregister-sw').addEventListener('click', async () => {
+            try {
+                statusEl.textContent = '正在注销Service Worker...';
+                
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(registrations.map(reg => reg.unregister()));
+                    
+                    if (registrations.length > 0) {
+                        statusEl.textContent = `✅ ${registrations.length}个Service Worker已注销!`;
+                    } else {
+                        statusEl.textContent = '没有发现活动的Service Worker';
+                    }
+                } else {
+                    statusEl.textContent = '此浏览器不支持Service Worker';
+                }
+            } catch (error) {
+                statusEl.textContent = `❌ 注销Service Worker失败: ${error.message}`;
+            }
+        });
+        
+        // 强制刷新页面
+        document.getElementById('reload-page').addEventListener('click', () => {
+            statusEl.textContent = '正在强制刷新...';
+            setTimeout(() => {
+                window.location.reload(true);
+            }, 500);
+        });
+        
+        // 返回首页
+        document.getElementById('go-to-index').addEventListener('click', () => {
+            window.location.href = 'index.html';
+        });
+    </script>
+</body>
+</html> 

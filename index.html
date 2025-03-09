@@ -14,26 +14,40 @@
     <script src="firebase-config.js"></script>
     
     <!-- PWA相关标签 -->
-    <link rel="manifest" href="./manifest.json">
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="咖啡销售">
     
     <!-- Apple Touch Icons -->
-    <link rel="apple-touch-icon" href="./icon-152x152.png">
-    <link rel="apple-touch-icon" sizes="152x152" href="./icon-152x152.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="./icon-192x192.png">
-    <link rel="apple-touch-icon" sizes="167x167" href="./icon-152x152.png">
+    <link rel="apple-touch-icon" href="icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="icons/icon-152x152.png">
     
     <!-- Favicon -->
-    <link rel="icon" type="image/png" sizes="512x512" href="./icon-512x512.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192x192.png">
-    <link rel="icon" type="image/png" sizes="96x96" href="./icon-96x96.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="./icon-72x72.png">
-    <link rel="shortcut icon" href="./icon-72x72.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512x512.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="icons/icon-96x96.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-72x72.png">
+    <link rel="shortcut icon" href="icons/icon-72x72.png">
 </head>
 <body>
+    <!-- 欢迎屏幕 -->
+    <div id="welcome-screen" class="welcome-screen">
+        <div class="welcome-content">
+            <div class="welcome-icon">
+                <i class="fas fa-coffee"></i>
+            </div>
+            <h1 class="welcome-title">欢迎回来</h1>
+            <p class="welcome-message" id="welcome-message">正在准备您的咖啡销售数据...</p>
+            <div class="welcome-loading">
+                <div class="loading-bar"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="app-container">
         <!-- 侧边导航栏 -->
         <nav class="sidebar">
@@ -52,14 +66,28 @@
                     <i class="fas fa-chart-line"></i>
                     <span>数据总览</span>
                 </a>
-                <a href="#data-entry" class="nav-link" data-page="data-entry">
-                    <i class="fas fa-edit"></i>
-                    <span>数据录入</span>
+                <a href="#data-manage" class="nav-link" data-page="data-manage">
+                    <i class="fas fa-table"></i>
+                    <span>数据管理</span>
                 </a>
-                <a href="#export" class="nav-link" data-page="export">
-                    <i class="fas fa-file-export"></i>
-                    <span>数据导出</span>
+                <a href="#data-analysis" class="nav-link" data-page="data-analysis">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>数据分析</span>
                 </a>
+                <a href="#settings" class="nav-link" data-page="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>系统设置</span>
+                </a>
+            </div>
+            
+            <div class="user-profile">
+                <div class="profile-img">
+                    <i class="fas fa-user-circle"></i>
+                </div>
+                <div class="profile-info">
+                    <span class="profile-name">咖啡豆销售员</span>
+                    <span class="profile-status">在线</span>
+                </div>
             </div>
         </nav>
 
@@ -70,7 +98,25 @@
                 <div id="dashboard" class="page page-current">
                     <div class="section-header">
                         <h1>数据总览</h1>
-                        <div class="date-display" id="current-date"></div>
+                        <div class="header-actions">
+                            <div class="date-display" id="current-date"></div>
+                            <button class="icon-btn refresh-btn" id="refresh-dashboard">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 欢迎卡片 -->
+                    <div class="welcome-card">
+                        <div class="welcome-info">
+                            <h2 id="greeting-text">早上好！</h2>
+                            <p id="today-summary">今日尚无销售数据，立即添加新的记录？</p>
+                        </div>
+                        <div class="welcome-action">
+                            <button class="btn btn-primary" id="quick-add-btn">
+                                <i class="fas fa-plus"></i> 快速添加数据
+                            </button>
+                        </div>
                     </div>
                     
                     <!-- 关键指标卡片 -->
@@ -151,124 +197,220 @@
                         </div>
                     </div>
 
-                    <!-- 数据表格 -->
-                    <div class="data-table-container">
-                        <div class="table-header">
+                    <!-- 最近数据简要 -->
+                    <div class="recent-data-container">
+                        <div class="section-header">
                             <h2>最近数据记录</h2>
-                            <div class="table-actions">
+                            <a href="#data-manage" class="view-all" data-page="data-manage">
+                                查看全部 <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </div>
+                        <div class="recent-data" id="recent-data">
+                            <!-- 最近数据记录将在这里动态生成 -->
+                            <div class="empty-data-message">
+                                <i class="fas fa-inbox"></i>
+                                <p>暂无数据记录</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 数据管理页 (原数据录入页改进) -->
+                <div id="data-manage" class="page page-next">
+                    <div class="section-header">
+                        <h1>数据管理</h1>
+                        <div class="header-actions">
+                            <button class="btn btn-primary" id="new-entry-btn">
+                                <i class="fas fa-plus"></i> 新建记录
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="data-manage-container">
+                        <!-- 左侧：数据表格 -->
+                        <div class="data-table-section">
+                            <div class="table-controls">
                                 <div class="search-box">
                                     <input type="text" id="search-input" placeholder="搜索..." class="form-control">
                                     <i class="fas fa-search search-icon"></i>
                                 </div>
-                                <select id="sort-select" class="form-control">
-                                    <option value="date-desc">日期 (新→旧)</option>
-                                    <option value="date-asc">日期 (旧→新)</option>
-                                    <option value="sales-desc">销售额 (高→低)</option>
-                                    <option value="sales-asc">销售额 (低→高)</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="table-wrapper">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>日期</th>
-                                        <th>微信添加</th>
-                                        <th>样品发出</th>
-                                        <th>销售额(元)</th>
-                                        <th>操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="sales-data">
-                                    <!-- 数据行会在这里动态生成 -->
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="pagination">
-                            <span id="page-info">第 1 页 / 共 1 页</span>
-                            <div class="pagination-buttons">
-                                <button id="prev-page" class="btn btn-secondary btn-sm">
-                                    <i class="fas fa-chevron-left"></i> 上一页
-                                </button>
-                                <button id="next-page" class="btn btn-secondary btn-sm">
-                                    下一页 <i class="fas fa-chevron-right"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 数据录入页 -->
-                <div id="data-entry" class="page page-next">
-                    <div class="section-header">
-                        <h1>数据录入</h1>
-                    </div>
-                    
-                    <div class="form-container">
-                        <form id="sales-form">
-                            <div class="form-group">
-                                <label for="date">日期</label>
-                                <div class="wheel-date-picker" id="wheel-date-picker">
-                                    <!-- 转盘式日期选择器将在这里动态生成 -->
-                                </div>
-                                <input type="hidden" id="date" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="wechat">微信添加数量</label>
-                                <input type="number" id="wechat" class="form-control" min="0" value="0" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="samples">样品发出数量</label>
-                                <input type="number" id="samples" class="form-control" min="0" value="0" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="sales">销售额(元)</label>
-                                <input type="number" id="sales" class="form-control" min="0" value="0" required>
-                            </div>
-                            <div class="form-buttons">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save"></i> 保存数据
-                                </button>
-                                <button type="button" id="fill-demo" class="btn btn-secondary">
-                                    <i class="fas fa-plus"></i> 填充演示数据
-                                </button>
-                                <button type="button" id="clear-data" class="btn btn-danger">
-                                    <i class="fas fa-trash"></i> 清空所有数据
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- 数据导出页 -->
-                <div id="export" class="page page-next">
-                    <div class="section-header">
-                        <h1>数据导出</h1>
-                    </div>
-                    
-                    <div class="export-container">
-                        <div class="export-controls">
-                            <div class="control-group">
-                                <label>导出为Markdown格式</label>
-                                <div class="button-group">
-                                    <button id="export-today" class="export-btn">导出今日数据</button>
-                                    <button id="export-month" class="export-btn">导出当月数据</button>
-                                    <button id="export-all" class="export-btn">导出全部数据</button>
+                                <div class="filter-controls">
+                                    <select id="sort-select" class="form-control">
+                                        <option value="date-desc">日期 (新→旧)</option>
+                                        <option value="date-asc">日期 (旧→新)</option>
+                                        <option value="sales-desc">销售额 (高→低)</option>
+                                        <option value="sales-asc">销售额 (低→高)</option>
+                                    </select>
+                                    <button class="icon-btn filter-btn" id="filter-btn">
+                                        <i class="fas fa-filter"></i>
+                                    </button>
                                 </div>
                             </div>
                             
-                            <div class="control-group">
-                                <label>Firebase数据管理</label>
-                                <div class="button-group">
-                                    <button onclick="backupFirebaseData()" class="export-btn">备份数据</button>
-                                    <button onclick="restoreFirebaseData()" class="export-btn">恢复数据</button>
-                                    <input type="file" id="restore-file" style="display: none;" accept=".json" onchange="handleRestoreFile(event)">
+                            <div class="table-wrapper">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>日期</th>
+                                            <th>微信添加</th>
+                                            <th>样品发出</th>
+                                            <th>销售额(元)</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="sales-data">
+                                        <!-- 数据行会在这里动态生成 -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="pagination">
+                                <span id="page-info">第 1 页 / 共 1 页</span>
+                                <div class="pagination-buttons">
+                                    <button id="prev-page" class="btn btn-icon">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <button id="next-page" class="btn btn-icon">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="monthly-summary">
-                            <h2>月度销售概况</h2>
+                        <!-- 右侧：表单 -->
+                        <div class="data-form-section" id="data-form-section">
+                            <div class="form-header">
+                                <h2 id="form-title">添加新记录</h2>
+                                <button class="icon-btn close-form-btn" id="close-form-btn">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            
+                            <form id="sales-form">
+                                <div class="form-group">
+                                    <label for="date">日期</label>
+                                    <input type="date" id="date" class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="wechat">微信添加数量</label>
+                                    <input type="number" id="wechat" class="form-control" min="0" value="0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="samples">样品发出数量</label>
+                                    <input type="number" id="samples" class="form-control" min="0" value="0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="sales">销售额(元)</label>
+                                    <input type="number" id="sales" class="form-control" min="0" value="0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="notes">备注</label>
+                                    <textarea id="notes" class="form-control" rows="3" placeholder="添加备注信息..."></textarea>
+                                </div>
+                                <div class="form-buttons">
+                                    <button type="submit" class="btn btn-primary btn-block">
+                                        <i class="fas fa-save"></i> 保存数据
+                                    </button>
+                                    <button type="button" id="reset-form" class="btn btn-secondary btn-block">
+                                        <i class="fas fa-undo"></i> 重置表单
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 数据分析页 (原数据导出页改进) -->
+                <div id="data-analysis" class="page page-next">
+                    <div class="section-header">
+                        <h1>数据分析</h1>
+                        <div class="header-actions">
+                            <div class="date-range-picker">
+                                <button class="btn btn-secondary btn-sm date-range-btn active" data-range="month">本月</button>
+                                <button class="btn btn-secondary btn-sm date-range-btn" data-range="quarter">本季度</button>
+                                <button class="btn btn-secondary btn-sm date-range-btn" data-range="year">全年</button>
+                                <button class="btn btn-secondary btn-sm date-range-btn" data-range="custom">自定义</button>
+                            </div>
+                            <button class="btn btn-primary btn-sm export-btn" id="export-data-btn">
+                                <i class="fas fa-file-export"></i> 导出数据
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="analysis-container">
+                        <!-- 数据概览卡片 -->
+                        <div class="analysis-summary">
+                            <div class="summary-card">
+                                <div class="summary-icon">
+                                    <i class="fas fa-calendar-check"></i>
+                                </div>
+                                <div class="summary-info">
+                                    <h3>数据周期</h3>
+                                    <p id="analysis-period">2023年1月</p>
+                                </div>
+                            </div>
+                            
+                            <div class="summary-card">
+                                <div class="summary-icon">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <div class="summary-info">
+                                    <h3>趋势分析</h3>
+                                    <p id="analysis-trend">销售额增长率 <span class="positive">+12%</span></p>
+                                </div>
+                            </div>
+                            
+                            <div class="summary-card">
+                                <div class="summary-icon">
+                                    <i class="fas fa-percentage"></i>
+                                </div>
+                                <div class="summary-info">
+                                    <h3>转化效率</h3>
+                                    <p id="analysis-conversion">样品转化率 <span>18%</span></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 分析图表区域 -->
+                        <div class="analysis-charts">
+                            <div class="chart-container">
+                                <div class="chart-header">
+                                    <h2>月度数据分析</h2>
+                                    <div class="chart-type-toggle">
+                                        <button class="chart-type-btn active" data-type="bar">
+                                            <i class="fas fa-chart-bar"></i>
+                                        </button>
+                                        <button class="chart-type-btn" data-type="line">
+                                            <i class="fas fa-chart-line"></i>
+                                        </button>
+                                        <button class="chart-type-btn" data-type="pie">
+                                            <i class="fas fa-chart-pie"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="chart-wrapper">
+                                    <canvas id="analysis-chart"></canvas>
+                                </div>
+                            </div>
+                            
+                            <div class="chart-container">
+                                <div class="chart-header">
+                                    <h2>数据关联分析</h2>
+                                </div>
+                                <div class="chart-wrapper">
+                                    <canvas id="correlation-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 月度表格数据 -->
+                        <div class="monthly-data-container">
+                            <div class="table-header">
+                                <h2>月度销售概况</h2>
+                                <button class="btn btn-sm btn-secondary" id="export-monthly">
+                                    <i class="fas fa-download"></i> 导出表格
+                                </button>
+                            </div>
                             <div class="table-wrapper">
                                 <table>
                                     <thead>
@@ -288,6 +430,69 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- 系统设置页 (新增) -->
+                <div id="settings" class="page page-next">
+                    <div class="section-header">
+                        <h1>系统设置</h1>
+                    </div>
+                    
+                    <div class="settings-container">
+                        <div class="settings-section">
+                            <h2>账户管理</h2>
+                            <div class="settings-group">
+                                <div class="settings-item">
+                                    <div class="settings-label">用户名</div>
+                                    <div class="settings-value">咖啡豆销售员</div>
+                                    <button class="btn btn-sm btn-secondary">修改</button>
+                                </div>
+                                <div class="settings-item">
+                                    <div class="settings-label">登录密码</div>
+                                    <div class="settings-value">••••••••</div>
+                                    <button class="btn btn-sm btn-secondary">修改</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="settings-section">
+                            <h2>数据管理</h2>
+                            <div class="settings-group">
+                                <div class="settings-item">
+                                    <div class="settings-label">数据备份</div>
+                                    <div class="settings-value">上次备份: 2023-05-20</div>
+                                    <button class="btn btn-sm btn-primary" onclick="backupFirebaseData()">备份数据</button>
+                                </div>
+                                <div class="settings-item">
+                                    <div class="settings-label">恢复数据</div>
+                                    <div class="settings-value">从备份文件恢复数据</div>
+                                    <button class="btn btn-sm btn-primary" onclick="restoreFirebaseData()">恢复数据</button>
+                                    <input type="file" id="restore-file" style="display: none;" accept=".json" onchange="handleRestoreFile(event)">
+                                </div>
+                                <div class="settings-item">
+                                    <div class="settings-label">清空数据</div>
+                                    <div class="settings-value">删除所有销售数据记录</div>
+                                    <button class="btn btn-sm btn-danger" id="clear-data">清空数据</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="settings-section">
+                            <h2>应用设置</h2>
+                            <div class="settings-group">
+                                <div class="settings-item">
+                                    <div class="settings-label">应用缓存</div>
+                                    <div class="settings-value">缓存大小: <span id="cache-size">计算中...</span></div>
+                                    <button class="btn btn-sm btn-secondary" onclick="clearPWACache()">清除缓存</button>
+                                </div>
+                                <div class="settings-item">
+                                    <div class="settings-label">应用版本</div>
+                                    <div class="settings-value">v1.2.0</div>
+                                    <button class="btn btn-sm btn-secondary">检查更新</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
         
@@ -298,16 +503,123 @@
                     <i class="fas fa-chart-line"></i>
                     <span>总览</span>
                 </a>
-                <a href="#data-entry" class="bottom-nav-link" data-page="data-entry">
-                    <i class="fas fa-edit"></i>
-                    <span>录入</span>
+                <a href="#data-manage" class="bottom-nav-link" data-page="data-manage">
+                    <i class="fas fa-table"></i>
+                    <span>管理</span>
                 </a>
-                <a href="#export" class="bottom-nav-link" data-page="export">
-                    <i class="fas fa-file-export"></i>
-                    <span>导出</span>
+                <a href="#data-analysis" class="bottom-nav-link" data-page="data-analysis">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>分析</span>
+                </a>
+                <a href="#settings" class="bottom-nav-link" data-page="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>设置</span>
                 </a>
             </div>
         </nav>
+    </div>
+
+    <!-- 快速添加弹窗 -->
+    <div class="modal-overlay" id="quick-add-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>快速添加数据</h3>
+                <button class="modal-close" id="close-quick-add">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="quick-form">
+                    <div class="form-group">
+                        <label for="quick-date">日期</label>
+                        <input type="date" id="quick-date" class="form-control" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label for="quick-wechat">微信添加</label>
+                            <input type="number" id="quick-wechat" class="form-control" min="0" value="0" required>
+                        </div>
+                        <div class="form-group half">
+                            <label for="quick-samples">样品发出</label>
+                            <input type="number" id="quick-samples" class="form-control" min="0" value="0" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="quick-sales">销售额(元)</label>
+                        <input type="number" id="quick-sales" class="form-control" min="0" value="0" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="quick-cancel" class="btn btn-secondary">取消</button>
+                <button id="quick-save" class="btn btn-primary">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 筛选弹窗 -->
+    <div class="modal-overlay" id="filter-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>筛选数据</h3>
+                <button class="modal-close" id="close-filter">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="filter-form">
+                    <div class="form-group">
+                        <label>日期范围</label>
+                        <div class="date-range-inputs">
+                            <input type="date" id="filter-date-from" class="form-control" placeholder="开始日期">
+                            <span class="date-range-separator">至</span>
+                            <input type="date" id="filter-date-to" class="form-control" placeholder="结束日期">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>销售额范围</label>
+                        <div class="range-inputs">
+                            <input type="number" id="filter-sales-min" class="form-control" placeholder="最小值" min="0">
+                            <span class="range-separator">至</span>
+                            <input type="number" id="filter-sales-max" class="form-control" placeholder="最大值" min="0">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="filter-reset" class="btn btn-secondary">重置</button>
+                <button id="filter-apply" class="btn btn-primary">应用筛选</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导出选项弹窗 -->
+    <div class="modal-overlay" id="export-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>导出数据</h3>
+                <button class="modal-close" id="close-export">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="export-options">
+                    <div class="export-option-item">
+                        <input type="radio" id="export-markdown" name="export-format" value="markdown" checked>
+                        <label for="export-markdown">Markdown格式</label>
+                    </div>
+                    <div class="export-time-range">
+                        <button class="btn btn-secondary btn-sm export-range-btn active" data-range="today" id="export-today">今日数据</button>
+                        <button class="btn btn-secondary btn-sm export-range-btn" data-range="month" id="export-month">本月数据</button>
+                        <button class="btn btn-secondary btn-sm export-range-btn" data-range="all" id="export-all">全部数据</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="export-cancel" class="btn btn-secondary">取消</button>
+                <button id="export-confirm" class="btn btn-primary">导出</button>
+            </div>
+        </div>
     </div>
 
     <!-- 通知提示 -->
@@ -339,19 +651,6 @@
 
     <script src="app.js"></script>
     <script src="clear-cache.js"></script>
-    
-    <!-- 开发调试工具 -->
-    <div class="dev-tools" style="position: fixed; bottom: 70px; right: 20px; z-index: 9999; display: none;">
-        <button onclick="clearPWACache()" style="background: #000000; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer;">
-            清除PWA缓存
-        </button>
-    </div>
-    <script>
-        // 仅在开发模式下显示工具
-        if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.search.includes('debug=true')) {
-            document.querySelector('.dev-tools').style.display = 'block';
-        }
-    </script>
     
     <!-- Service Worker注册 -->
     <script>
