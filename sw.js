@@ -1,25 +1,27 @@
 // 缓存名称
-const CACHE_NAME = 'coffee-sales-cache-v1';
+const CACHE_NAME = 'coffee-sales-cache-v2';
 
 // 获取基础URL路径
 const BASE_URL = self.location.pathname.replace('sw.js', '');
 
 // 需要缓存的资源
 const urlsToCache = [
-  BASE_URL,
-  BASE_URL + 'index.html',
-  BASE_URL + 'styles.css',
-  BASE_URL + 'app.js',
-  BASE_URL + 'firebase-config.js',
-  BASE_URL + 'manifest.json',
-  BASE_URL + 'icons/icon-72x72.png',
-  BASE_URL + 'icons/icon-96x96.png',
-  BASE_URL + 'icons/icon-128x128.png',
-  BASE_URL + 'icons/icon-144x144.png',
-  BASE_URL + 'icons/icon-152x152.png',
-  BASE_URL + 'icons/icon-192x192.png',
-  BASE_URL + 'icons/icon-384x384.png',
-  BASE_URL + 'icons/icon-512x512.png',
+  './',
+  './index.html',
+  './styles.css',
+  './app.js',
+  './firebase-config.js',
+  './manifest.json',
+  './icons/icon-72x72.png',
+  './icons/icon-96x96.png',
+  './icons/icon-128x128.png',
+  './icons/icon-144x144.png',
+  './icons/icon-152x152.png',
+  './icons/icon-192x192.png',
+  './icons/icon-384x384.png',
+  './icons/icon-512x512.png',
+  './clear-cache.js',
+  './icon-test.html',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
   'https://cdn.jsdelivr.net/npm/chart.js'
 ];

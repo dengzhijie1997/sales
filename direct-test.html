@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>直接图标测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #8b5a2b;
+            text-align: center;
+        }
+        .icon-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .icon-item {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+            width: 120px;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>直接图标测试</h1>
+    <p>此页面直接显示图标，绕过Service Worker缓存。如果这里能看到图标但测试页面看不到，说明是缓存问题。</p>
+    
+    <!-- 使用时间戳作为查询参数强制刷新缓存 -->
+    <div class="icon-row">
+        <div class="icon-item">
+            <img src="./icons/icon-72x72.png?t=1" alt="72x72" onerror="this.parentNode.innerHTML += '<div class=\'error\'>加载失败</div>'">
+            <p>72x72</p>
+        </div>
+        <div class="icon-item">
+            <img src="./icons/icon-96x96.png?t=1" alt="96x96" onerror="this.parentNode.innerHTML += '<div class=\'error\'>加载失败</div>'">
+            <p>96x96</p>
+        </div>
+        <div class="icon-item">
+            <img src="./icons/icon-128x128.png?t=1" alt="128x128" onerror="this.parentNode.innerHTML += '<div class=\'error\'>加载失败</div>'">
+            <p>128x128</p>
+        </div>
+        <div class="icon-item">
+            <img src="./icons/icon-192x192.png?t=1" alt="192x192" onerror="this.parentNode.innerHTML += '<div class=\'error\'>加载失败</div>'">
+            <p>192x192</p>
+        </div>
+        <div class="icon-item">
+            <img src="./icons/icon-512x512.png?t=1" alt="512x512" onerror="this.parentNode.innerHTML += '<div class=\'error\'>加载失败</div>'">
+            <p>512x512</p>
+        </div>
+    </div>
+    
+    <h2>图标路径诊断</h2>
+    <div id="path-test">
+        <button onclick="testIconPaths()">测试图标路径</button>
+        <div id="path-results"></div>
+    </div>
+    
+    <script>
+        // 路径测试函数
+        async function testIconPaths() {
+            const resultsDiv = document.getElementById('path-results');
+            resultsDiv.innerHTML = '<p>正在测试图标路径...</p>';
+            
+            const iconPaths = [
+                './icons/icon-72x72.png',
+                './icons/icon-96x96.png',
+                './icons/icon-128x128.png',
+                './icons/icon-192x192.png',
+                './icons/icon-512x512.png'
+            ];
+            
+            const results = [];
+            
+            for (const path of iconPaths) {
+                try {
+                    const response = await fetch(path + '?t=' + Date.now(), {cache: 'no-store'});
+                    const status = response.status;
+                    const contentType = response.headers.get('content-type');
+                    
+                    results.push({
+                        path,
+                        status,
+                        contentType,
+                        ok: response.ok
+                    });
+                } catch (error) {
+                    results.push({
+                        path,
+                        error: error.message,
+                        ok: false
+                    });
+                }
+            }
+            
+            // 显示结果
+            let html = '<h3>测试结果</h3>';
+            
+            results.forEach(result => {
+                const cssClass = result.ok ? 'success' : 'error';
+                html += `<div class="${cssClass}">
+                    <strong>${result.path}</strong><br>
+                    状态: ${result.status || 'N/A'}<br>
+                    类型: ${result.contentType || 'N/A'}<br>
+                    ${result.error ? '错误: ' + result.error : ''}
+                </div><br>`;
+            });
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        // 页面加载完成后自动测试
+        window.addEventListener('load', () => {
+            setTimeout(testIconPaths, 1000);
+        });
+    </script>
+</body>
+</html> 
