@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>咖啡豆销售数据管理系统</title>
+    <script>
+        // 单页应用GitHub Pages重定向
+        // 用于确保PWA能在子页面直接访问时正常工作
+        const pathSegments = location.pathname.split('/');
+        const repoName = pathSegments[1]; // GitHub Pages的仓库名称 ('sales')
+        
+        const redirectUrl = location.origin + 
+                          '/' + repoName + 
+                          '/?path=' + 
+                          location.pathname.replace('/' + repoName, '')
+                            .replace(/^\//, '');
+                            
+        sessionStorage.setItem('redirect', location.pathname);
+        location.replace(redirectUrl);
+    </script>
+</head>
+<body>
+    <h1>重定向中...</h1>
+    <p>如果您没有被自动重定向，<a href="index.html">请点击这里</a>。</p>
+</body>
+</html> 
