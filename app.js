@@ -11,31 +11,117 @@ let unsubscribe = null; // Firebase实时监听取消函数
 
 // DOM元素加载完成后执行
 document.addEventListener('DOMContentLoaded', () => {
-    // 初始化欢迎屏幕
-    initWelcomeScreen();
+    console.log('DOM已加载，开始初始化应用...');
     
-    // 初始化日期显示
-    updateCurrentDate();
-    
-    // 加载Firebase数据
-    loadData();
-    
-    // 初始化事件监听
-    initEventListeners();
-    
-    // 初始化页面
-    initPages();
+    try {
+        // 初始化欢迎屏幕
+        initWelcomeScreen();
+        console.log('欢迎屏幕初始化完成');
+        
+        // 初始化日期显示
+        updateCurrentDate();
+        console.log('日期显示更新完成');
+        
+        // 初始化页面
+        initPages();
+        console.log('页面初始化完成');
+        
+        // 加载Firebase数据
+        loadData();
+        console.log('数据加载请求已发送');
+        
+        // 初始化事件监听
+        initEventListeners();
+        console.log('事件监听器初始化完成');
+        
+        console.log('应用初始化完成');
+    } catch (error) {
+        console.error('应用初始化失败:', error);
+        // 如果初始化失败，尝试进行应急处理
+        try {
+            // 显示友好的错误消息
+            showNotification('应用加载过程中出现错误，请刷新页面重试', 'error');
+        } catch (e) {
+            // 如果连showNotification也失败了，使用内置alert
+            console.error('显示错误通知时出错:', e);
+            alert('应用加载失败，请刷新页面重试');
+        }
+    }
 });
 
-// 初始化各页面
+// 添加全局错误处理
+window.addEventListener('error', function(e) {
+    console.error('全局错误:', e.message, e.filename, e.lineno, e.colno, e.error);
+    try {
+        showNotification('发生错误: ' + e.message, 'error');
+    } catch (err) {
+        // 防止递归错误
+        console.error('显示错误通知时出错:', err);
+    }
+    return false; // 允许默认错误处理
+});
+
+// 修复按钮点击事件
+function fixAllButtons() {
+    console.log('开始修复按钮点击事件...');
+    
+    // 所有具有ID属性的按钮
+    document.querySelectorAll('button[id]').forEach(button => {
+        const id = button.id;
+        console.log('检查按钮:', id);
+        
+        // 为按钮添加样式类（如果没有）
+        if (!button.classList.contains('btn')) {
+            const isCloseBtn = id.includes('close');
+            const isDangerBtn = id.includes('delete') || id.includes('clear');
+            const isSecondaryBtn = id.includes('cancel') || isCloseBtn;
+            
+            if (!isCloseBtn && !button.classList.contains('icon-btn')) {
+                button.classList.add('btn');
+                
+                if (isDangerBtn) {
+                    button.classList.add('btn-danger');
+                } else if (isSecondaryBtn) {
+                    button.classList.add('btn-secondary');
+                } else {
+                    button.classList.add('btn-primary');
+                }
+            }
+        }
+        
+        // 添加点击反馈效果
+        button.addEventListener('click', function() {
+            console.log('按钮点击:', id);
+            this.classList.add('button-clicked');
+            setTimeout(() => {
+                this.classList.remove('button-clicked');
+            }, 200);
+        });
+    });
+    
+    console.log('按钮修复完成');
+}
+
+// 添加到初始化页面函数
 function initPages() {
+    console.log('初始化页面...');
+    
+    // 修复所有按钮
+    fixAllButtons();
+    
     // 初始化数据分析页面
-    updateAnalysisForRange('month');
+    try {
+        updateAnalysisForRange('month');
+        console.log('数据分析页面初始化完成');
+    } catch (e) {
+        console.error('初始化数据分析页面时出错:', e);
+    }
     
     // 初始化表单区域
     const formSection = document.getElementById('data-form-section');
     if (formSection) {
         formSection.style.display = 'none';
+        console.log('表单区域初始化完成');
     }
     
     // 设置默认日期为今天
@@ -43,6 +129,7 @@ function initPages() {
     dateInputs.forEach(input => {
         input.value = new Date().toISOString().split('T')[0];
     });
+    console.log('日期输入初始化完成');
     
     // 初始化弹窗
     const modals = document.querySelectorAll('.modal-overlay');
@@ -54,11 +141,13 @@ function initPages() {
             }
         });
     });
+    console.log('弹窗初始化完成');
     
     // 初始化表单提交事件
     const salesForm = document.getElementById('sales-form');
     if (salesForm) {
         salesForm.addEventListener('submit', handleFormSubmit);
+        console.log('销售表单事件初始化完成');
     }
     
     const quickForm = document.getElementById('quick-form');
@@ -67,7 +156,10 @@ function initPages() {
             e.preventDefault();
             handleQuickFormSubmit();
         });
+        console.log('快速表单事件初始化完成');
     }
+    
+    console.log('页面初始化完成');
 }
 
 // 更新当前日期显示
@@ -115,22 +207,23 @@ function saveData() {
 
 // 初始化事件监听
 function initEventListeners() {
+    // 确保先清除可能存在的旧事件监听器，避免重复绑定
+    clearAllEventListeners();
+    
     // 导航链接点击事件 - 侧边栏
-    const navLinks = document.querySelectorAll('.nav-link');
-    navLinks.forEach(link => {
+    document.querySelectorAll('.nav-link').forEach(link => {
         link.addEventListener('click', function(e) {
             e.preventDefault();
             const pageId = this.getAttribute('data-page');
             navigateToPage(pageId);
             
             // 关闭侧边栏 (移动端)
-            document.querySelector('.sidebar').classList.remove('expanded');
+            document.querySelector('.sidebar')?.classList.remove('expanded');
         });
     });
     
     // 导航链接点击事件 - 底部导航
-    const bottomNavLinks = document.querySelectorAll('.bottom-nav-link');
-    bottomNavLinks.forEach(link => {
+    document.querySelectorAll('.bottom-nav-link').forEach(link => {
         link.addEventListener('click', function(e) {
             e.preventDefault();
             const pageId = this.getAttribute('data-page');
@@ -139,206 +232,158 @@ function initEventListeners() {
     });
     
     // 菜单切换按钮事件
-    const menuToggle = document.getElementById('menu-toggle');
-    menuToggle.addEventListener('click', function() {
-        document.querySelector('.sidebar').classList.toggle('expanded');
+    document.getElementById('menu-toggle')?.addEventListener('click', function() {
+        document.querySelector('.sidebar')?.classList.toggle('expanded');
     });
     
     // 表单提交事件
-    const salesForm = document.getElementById('sales-form');
-    salesForm.addEventListener('submit', handleFormSubmit);
+    document.getElementById('sales-form')?.addEventListener('submit', handleFormSubmit);
     
-    // 搜索功能
-    const searchInput = document.getElementById('search-input');
-    searchInput.addEventListener('input', handleSearch);
-    
-    // 排序功能
-    const sortSelect = document.getElementById('sort-select');
-    sortSelect.addEventListener('change', handleSort);
-    
-    // 分页按钮
-    document.getElementById('prev-page').addEventListener('click', () => changePage(-1));
-    document.getElementById('next-page').addEventListener('click', () => changePage(1));
-    
-    // 图表控制
-    document.getElementById('chart-period').addEventListener('change', updateChart);
-    document.getElementById('chart-type').addEventListener('change', updateChart);
-    
-    // 按钮事件
-    document.getElementById('fill-demo').addEventListener('click', fillDemoData);
-    document.getElementById('clear-data').addEventListener('click', clearAllData);
-    
-    // 确认对话框控制
-    document.getElementById('close-confirm').addEventListener('click', hideConfirmDialog);
-    document.getElementById('confirm-cancel').addEventListener('click', hideConfirmDialog);
-    
-    // 导出按钮
-    document.getElementById('export-today').addEventListener('click', () => exportData('today'));
-    document.getElementById('export-month').addEventListener('click', () => exportData('month'));
-    document.getElementById('export-all').addEventListener('click', () => exportData('all'));
-    
-    // 处理哈希变化
-    window.addEventListener('hashchange', handleHashChange);
-    
-    // 初始哈希处理
-    handleHashChange();
-    
-    // 快速添加按钮
-    const quickAddBtn = document.getElementById('quick-add-btn');
-    if (quickAddBtn) {
-        quickAddBtn.addEventListener('click', () => {
-            openQuickAddModal();
-        });
-    }
-    
-    // 快速添加弹窗相关
-    document.getElementById('close-quick-add')?.addEventListener('click', () => {
-        closeModal('quick-add-modal');
-    });
-    
-    document.getElementById('quick-cancel')?.addEventListener('click', () => {
-        closeModal('quick-add-modal');
-    });
-    
-    document.getElementById('quick-save')?.addEventListener('click', () => {
+    // 快速添加表单提交事件
+    document.getElementById('quick-form')?.addEventListener('submit', (e) => {
+        e.preventDefault();
         handleQuickFormSubmit();
     });
     
+    // 搜索功能
+    document.getElementById('search-input')?.addEventListener('input', handleSearch);
+    
+    // 排序功能
+    document.getElementById('sort-select')?.addEventListener('change', handleSort);
+    
+    // 分页按钮
+    document.getElementById('prev-page')?.addEventListener('click', () => changePage(-1));
+    document.getElementById('next-page')?.addEventListener('click', () => changePage(1));
+    
+    // 图表控制
+    document.getElementById('chart-period')?.addEventListener('change', updateChart);
+    document.getElementById('chart-type')?.addEventListener('change', updateChart);
+    
+    // 内部函数：添加按钮事件监听，更加可靠
+    function addButtonEventListener(id, eventHandler) {
+        const button = document.getElementById(id);
+        if (button) {
+            // 先移除可能存在的事件监听器
+            button.replaceWith(button.cloneNode(true));
+            // 重新获取元素并添加事件监听器
+            document.getElementById(id)?.addEventListener('click', eventHandler);
+        }
+    }
+    
+    // 使用更可靠的方式绑定按钮事件
+    // 快速添加按钮
+    addButtonEventListener('quick-add-btn', openQuickAddModal);
+    
+    // 弹窗相关按钮
+    addButtonEventListener('close-quick-add', () => closeModal('quick-add-modal'));
+    addButtonEventListener('quick-cancel', () => closeModal('quick-add-modal'));
+    addButtonEventListener('quick-save', handleQuickFormSubmit);
+    
     // 筛选按钮
-    document.getElementById('filter-btn')?.addEventListener('click', () => {
-        openFilterModal();
-    });
+    addButtonEventListener('filter-btn', openFilterModal);
+    addButtonEventListener('close-filter', () => closeModal('filter-modal'));
+    addButtonEventListener('filter-reset', resetFilters);
+    addButtonEventListener('filter-apply', applyFilters);
     
-    document.getElementById('close-filter')?.addEventListener('click', () => {
-        closeModal('filter-modal');
-    });
+    // 导出按钮
+    addButtonEventListener('export-data-btn', openExportModal);
+    addButtonEventListener('close-export', () => closeModal('export-modal'));
+    addButtonEventListener('export-cancel', () => closeModal('export-modal'));
+    addButtonEventListener('export-confirm', handleExport);
+    addButtonEventListener('export-today', () => exportData('today'));
+    addButtonEventListener('export-month', () => exportData('month'));
+    addButtonEventListener('export-all', () => exportData('all'));
     
-    document.getElementById('filter-reset')?.addEventListener('click', () => {
-        resetFilters();
-    });
+    // 表单按钮
+    addButtonEventListener('new-entry-btn', () => showForm('add'));
+    addButtonEventListener('close-form-btn', hideForm);
+    addButtonEventListener('reset-form', resetForm);
+    addButtonEventListener('fill-demo', fillDemoData);
+    addButtonEventListener('clear-data', clearAllData);
     
-    document.getElementById('filter-apply')?.addEventListener('click', () => {
-        applyFilters();
-    });
+    // 刷新按钮
+    addButtonEventListener('refresh-dashboard', refreshDashboard);
     
-    // 导出数据按钮
-    document.getElementById('export-data-btn')?.addEventListener('click', () => {
-        openExportModal();
-    });
-    
-    document.getElementById('close-export')?.addEventListener('click', () => {
-        closeModal('export-modal');
-    });
-    
-    document.getElementById('export-cancel')?.addEventListener('click', () => {
-        closeModal('export-modal');
-    });
-    
-    document.getElementById('export-confirm')?.addEventListener('click', () => {
-        handleExport();
-    });
-    
-    // 新建记录按钮
-    document.getElementById('new-entry-btn')?.addEventListener('click', () => {
-        showForm('add');
-    });
-    
-    // 关闭表单按钮
-    document.getElementById('close-form-btn')?.addEventListener('click', () => {
-        hideForm();
-    });
-    
-    // 重置表单按钮
-    document.getElementById('reset-form')?.addEventListener('click', () => {
-        resetForm();
-    });
+    // 确认对话框按钮
+    addButtonEventListener('close-confirm', hideConfirmDialog);
+    addButtonEventListener('confirm-cancel', hideConfirmDialog);
     
     // 日期范围按钮
-    const dateRangeBtns = document.querySelectorAll('.date-range-btn');
-    dateRangeBtns.forEach(btn => {
+    document.querySelectorAll('.date-range-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-            dateRangeBtns.forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.date-range-btn').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
             updateAnalysisForRange(this.dataset.range);
         });
     });
     
     // 图表类型切换
-    const chartTypeBtns = document.querySelectorAll('.chart-type-btn');
-    chartTypeBtns.forEach(btn => {
+    document.querySelectorAll('.chart-type-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-            chartTypeBtns.forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.chart-type-btn').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
             updateAnalysisChartType(this.dataset.type);
         });
     });
     
-    // 刷新总览按钮
-    document.getElementById('refresh-dashboard')?.addEventListener('click', () => {
-        refreshDashboard();
-    });
-    
-    // 确保所有按钮都有事件监听
-    document.querySelectorAll('[id]').forEach(el => {
-        const id = el.id;
-        
-        // 处理特定按钮
-        if (id === 'quick-add-btn' && !el.hasEventListener) {
-            el.addEventListener('click', openQuickAddModal);
-            el.hasEventListener = true;
-        }
-        
-        if (id === 'new-entry-btn' && !el.hasEventListener) {
-            el.addEventListener('click', () => showForm('add'));
-            el.hasEventListener = true;
-        }
-        
-        if (id === 'close-form-btn' && !el.hasEventListener) {
-            el.addEventListener('click', hideForm);
-            el.hasEventListener = true;
-        }
-        
-        if (id === 'reset-form' && !el.hasEventListener) {
-            el.addEventListener('click', resetForm);
-            el.hasEventListener = true;
-        }
-        
-        if (id === 'filter-btn' && !el.hasEventListener) {
-            el.addEventListener('click', openFilterModal);
-            el.hasEventListener = true;
-        }
-        
-        if (id === 'export-data-btn' && !el.hasEventListener) {
-            el.addEventListener('click', openExportModal);
-            el.hasEventListener = true;
-        }
-        
-        if (id === 'refresh-dashboard' && !el.hasEventListener) {
-            el.addEventListener('click', refreshDashboard);
-            el.hasEventListener = true;
-        }
-    });
-    
-    // 处理表格行点击事件
+    // 全局点击事件委托，处理表格行按钮点击
     document.addEventListener('click', function(e) {
         // 编辑按钮点击
-        if (e.target.classList.contains('edit-btn') || e.target.closest('.edit-btn')) {
+        if (e.target.closest('.edit-btn')) {
             const row = e.target.closest('tr');
-            const itemId = row.dataset.id;
-            if (itemId) {
-                showForm('edit', itemId);
+            if (row && row.dataset.id) {
+                showForm('edit', row.dataset.id);
             }
         }
         
         // 删除按钮点击
-        if (e.target.classList.contains('delete-btn') || e.target.closest('.delete-btn')) {
+        if (e.target.closest('.delete-btn')) {
             const row = e.target.closest('tr');
-            const itemId = row.dataset.id;
-            if (itemId) {
-                handleDelete({ target: e.target, itemId });
+            if (row && row.dataset.id) {
+                handleDelete({ target: e.target, itemId: row.dataset.id });
+            }
+        }
+        
+        // 导航链接点击委托
+        if (e.target.closest('.view-all')) {
+            e.preventDefault();
+            const link = e.target.closest('.view-all');
+            const pageId = link.getAttribute('data-page');
+            if (pageId) {
+                navigateToPage(pageId);
             }
         }
     });
+    
+    console.log('所有事件监听器已初始化');
+}
+
+// 清除所有已有的事件监听器
+function clearAllEventListeners() {
+    // 这里我们采用一种简单但有效的方式：克隆并替换元素
+    // 这会移除所有绑定的事件监听器而不改变页面结构
+    
+    // 常见的交互元素IDs
+    const buttonIds = [
+        'quick-add-btn', 'new-entry-btn', 'close-form-btn', 'reset-form',
+        'filter-btn', 'filter-reset', 'filter-apply', 
+        'export-data-btn', 'export-today', 'export-month', 'export-all',
+        'fill-demo', 'clear-data', 'refresh-dashboard',
+        'close-confirm', 'confirm-cancel', 'confirm-ok',
+        'close-quick-add', 'quick-cancel', 'quick-save',
+        'close-filter', 'close-export', 'export-cancel', 'export-confirm'
+    ];
+    
+    // 克隆并替换这些元素
+    buttonIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            const clone = el.cloneNode(true);
+            el.parentNode.replaceChild(clone, el);
+        }
+    });
+    
+    console.log('已清除所有事件监听器');
 }
 
 // 处理哈希变化

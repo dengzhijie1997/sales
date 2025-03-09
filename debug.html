@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统诊断和修复工具</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: var(--primary-color);
+        }
+        
+        .debug-card {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .debug-section {
+            margin-bottom: 30px;
+        }
+        
+        .debug-section h2 {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .debug-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+            overflow-wrap: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .status-success {
+            color: green;
+        }
+        
+        .status-error {
+            color: red;
+        }
+        
+        .status-info {
+            color: blue;
+        }
+        
+        .status-item {
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        code {
+            background-color: #f0f0f0;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        
+        .css-test-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-card">
+        <h1>系统诊断和修复工具</h1>
+        <p>这个工具可以帮助你诊断和修复常见的界面和交互问题。</p>
+    </div>
+    
+    <div class="debug-card">
+        <div class="debug-section">
+            <h2>缓存和服务工作线程管理</h2>
+            <p>如果界面显示异常或者按钮不响应，可能是缓存或者Service Worker出现问题。</p>
+            
+            <div class="debug-actions">
+                <button class="btn btn-primary" id="clear-cache">清除所有缓存</button>
+                <button class="btn btn-primary" id="unregister-sw">注销Service Worker</button>
+                <button class="btn btn-danger" id="clear-all">清除全部（强制重置）</button>
+            </div>
+            
+            <div class="status" id="cache-status"></div>
+        </div>
+    </div>
+    
+    <div class="debug-card">
+        <div class="debug-section">
+            <h2>界面测试</h2>
+            <p>测试各种界面元素是否正常工作。</p>
+            
+            <div class="css-test-row">
+                <button class="btn btn-primary">主要按钮</button>
+                <button class="btn btn-secondary">次要按钮</button>
+                <button class="btn btn-danger">危险按钮</button>
+            </div>
+            
+            <div class="css-test-row">
+                <div class="stat-card" style="width: 200px">
+                    <div class="stat-icon">
+                        <i class="fas fa-coffee"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>测试卡片</h3>
+                        <p>100</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="debug-actions">
+                <button class="btn btn-primary" id="test-modal">测试弹窗</button>
+                <button class="btn btn-primary" id="test-notification">测试通知</button>
+                <button class="btn btn-primary" id="test-animation">测试动画</button>
+            </div>
+            
+            <div class="status" id="ui-status"></div>
+        </div>
+    </div>
+    
+    <div class="debug-card">
+        <div class="debug-section">
+            <h2>事件监听器修复</h2>
+            <p>修复按钮和交互元素的事件监听器。</p>
+            
+            <div class="debug-actions">
+                <button class="btn btn-primary" id="fix-events">修复所有事件监听器</button>
+                <button class="btn btn-primary" id="check-buttons">检查所有按钮</button>
+                <button class="btn btn-primary" id="test-events">测试事件冒泡</button>
+            </div>
+            
+            <div class="status" id="event-status"></div>
+        </div>
+    </div>
+    
+    <div class="debug-card">
+        <div class="debug-section">
+            <h2>诊断报告</h2>
+            <p>生成完整的系统诊断报告，以帮助排查问题。</p>
+            
+            <div class="debug-actions">
+                <button class="btn btn-primary" id="run-diagnostics">运行诊断</button>
+                <button class="btn btn-secondary" id="export-report">导出报告</button>
+            </div>
+            
+            <div class="status" id="report-status"></div>
+        </div>
+    </div>
+    
+    <div class="debug-card">
+        <div class="debug-section">
+            <h2>返回主应用</h2>
+            <div class="button-group">
+                <a href="index.html" class="btn btn-primary">返回首页</a>
+                <a href="index.html?force-refresh=true" class="btn btn-secondary">刷新并返回</a>
+                <a href="test-ui.html" class="btn btn-secondary">UI测试页面</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 测试弹窗 -->
+    <div class="modal-overlay" id="test-modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>测试弹窗</h3>
+                <button class="modal-close" id="close-test-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>这是一个测试弹窗，用于验证弹窗样式和功能是否正常。</p>
+                <div class="form-group">
+                    <label>测试输入框</label>
+                    <input type="text" class="form-control" placeholder="在这里输入内容">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-test-modal" class="btn btn-secondary">取消</button>
+                <button id="confirm-test-modal" class="btn btn-primary">确定</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 缓存状态元素
+        const cacheStatusEl = document.getElementById('cache-status');
+        const uiStatusEl = document.getElementById('ui-status');
+        const eventStatusEl = document.getElementById('event-status');
+        const reportStatusEl = document.getElementById('report-status');
+        
+        // 添加状态消息
+        function addStatus(element, message, type = 'info') {
+            const item = document.createElement('div');
+            item.className = `status-item status-${type}`;
+            
+            const now = new Date();
+            const timestamp = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
+            
+            item.innerHTML = `[${timestamp}] ${message}`;
+            element.prepend(item);
+        }
+        
+        // 清除缓存
+        document.getElementById('clear-cache').addEventListener('click', async () => {
+            try {
+                addStatus(cacheStatusEl, '开始清除缓存...');
+                
+                // 清除所有缓存
+                const cacheNames = await caches.keys();
+                addStatus(cacheStatusEl, `发现 ${cacheNames.length} 个缓存: ${cacheNames.join(', ')}`);
+                
+                await Promise.all(cacheNames.map(name => caches.delete(name)));
+                
+                addStatus(cacheStatusEl, '所有缓存已清除!', 'success');
+            } catch (error) {
+                addStatus(cacheStatusEl, `清除缓存失败: ${error.message}`, 'error');
+            }
+        });
+        
+        // 注销Service Worker
+        document.getElementById('unregister-sw').addEventListener('click', async () => {
+            try {
+                addStatus(cacheStatusEl, '开始注销Service Worker...');
+                
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    addStatus(cacheStatusEl, `发现 ${registrations.length} 个Service Worker`);
+                    
+                    await Promise.all(registrations.map(reg => reg.unregister()));
+                    
+                    if (registrations.length > 0) {
+                        addStatus(cacheStatusEl, `${registrations.length}个Service Worker已注销!`, 'success');
+                    } else {
+                        addStatus(cacheStatusEl, '没有发现活动的Service Worker', 'info');
+                    }
+                } else {
+                    addStatus(cacheStatusEl, '此浏览器不支持Service Worker', 'error');
+                }
+            } catch (error) {
+                addStatus(cacheStatusEl, `注销Service Worker失败: ${error.message}`, 'error');
+            }
+        });
+        
+        // 清除全部
+        document.getElementById('clear-all').addEventListener('click', async () => {
+            try {
+                addStatus(cacheStatusEl, '开始全面清理...');
+                
+                // 清除缓存
+                const cacheNames = await caches.keys();
+                await Promise.all(cacheNames.map(name => caches.delete(name)));
+                addStatus(cacheStatusEl, '缓存已清除');
+                
+                // 注销Service Worker
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(registrations.map(reg => reg.unregister()));
+                    addStatus(cacheStatusEl, 'Service Worker已注销');
+                }
+                
+                // 清除localStorage
+                localStorage.clear();
+                addStatus(cacheStatusEl, 'localStorage已清除');
+                
+                // 清除sessionStorage
+                sessionStorage.clear();
+                addStatus(cacheStatusEl, 'sessionStorage已清除');
+                
+                addStatus(cacheStatusEl, '全面清理完成! 请刷新页面', 'success');
+            } catch (error) {
+                addStatus(cacheStatusEl, `全面清理失败: ${error.message}`, 'error');
+            }
+        });
+        
+        // 测试弹窗
+        document.getElementById('test-modal').addEventListener('click', () => {
+            document.getElementById('test-modal-overlay').classList.add('visible');
+            addStatus(uiStatusEl, '弹窗已显示');
+        });
+        
+        document.getElementById('close-test-modal').addEventListener('click', () => {
+            document.getElementById('test-modal-overlay').classList.remove('visible');
+            addStatus(uiStatusEl, '弹窗已关闭');
+        });
+        
+        document.getElementById('cancel-test-modal').addEventListener('click', () => {
+            document.getElementById('test-modal-overlay').classList.remove('visible');
+            addStatus(uiStatusEl, '弹窗已取消');
+        });
+        
+        document.getElementById('confirm-test-modal').addEventListener('click', () => {
+            document.getElementById('test-modal-overlay').classList.remove('visible');
+            addStatus(uiStatusEl, '弹窗已确认', 'success');
+        });
+        
+        // 测试通知
+        document.getElementById('test-notification').addEventListener('click', () => {
+            addStatus(uiStatusEl, '显示测试通知');
+            
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.innerHTML = `
+                <div class="notification-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div>这是一条测试通知</div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // 3秒后移除
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        });
+        
+        // 测试动画
+        document.getElementById('test-animation').addEventListener('click', () => {
+            addStatus(uiStatusEl, '测试动画效果');
+            
+            const button = document.getElementById('test-animation');
+            button.classList.add('button-clicked');
+            
+            setTimeout(() => {
+                button.classList.remove('button-clicked');
+            }, 300);
+        });
+        
+        // 修复事件监听器
+        document.getElementById('fix-events').addEventListener('click', () => {
+            addStatus(eventStatusEl, '开始修复事件监听器...');
+            
+            try {
+                // 获取所有按钮
+                const buttons = document.querySelectorAll('button[id]');
+                addStatus(eventStatusEl, `找到 ${buttons.length} 个带ID的按钮`);
+                
+                // 为每个按钮重新绑定事件
+                buttons.forEach(button => {
+                    // 克隆节点会移除所有事件监听器
+                    const clone = button.cloneNode(true);
+                    button.parentNode.replaceChild(clone, button);
+                    
+                    // 重新添加点击事件
+                    clone.addEventListener('click', function() {
+                        addStatus(eventStatusEl, `按钮 ${this.id} 点击成功`, 'success');
+                    });
+                });
+                
+                addStatus(eventStatusEl, '所有事件监听器已修复', 'success');
+            } catch (error) {
+                addStatus(eventStatusEl, `修复事件监听器失败: ${error.message}`, 'error');
+            }
+        });
+        
+        // 检查按钮
+        document.getElementById('check-buttons').addEventListener('click', () => {
+            addStatus(eventStatusEl, '开始检查按钮...');
+            
+            try {
+                // 获取所有按钮
+                const buttons = document.querySelectorAll('button');
+                
+                let missingIds = 0;
+                let missingClasses = 0;
+                
+                buttons.forEach(button => {
+                    if (!button.id) {
+                        missingIds++;
+                    }
+                    
+                    if (!button.classList.contains('btn') && 
+                        !button.classList.contains('icon-btn') && 
+                        !button.classList.contains('modal-close')) {
+                        missingClasses++;
+                    }
+                });
+                
+                addStatus(eventStatusEl, `检查了 ${buttons.length} 个按钮`);
+                addStatus(eventStatusEl, `发现 ${missingIds} 个按钮缺少ID`);
+                addStatus(eventStatusEl, `发现 ${missingClasses} 个按钮缺少样式类`, missingClasses > 0 ? 'warning' : 'info');
+                
+                if (missingIds === 0 && missingClasses === 0) {
+                    addStatus(eventStatusEl, '所有按钮状态正常', 'success');
+                }
+            } catch (error) {
+                addStatus(eventStatusEl, `检查按钮失败: ${error.message}`, 'error');
+            }
+        });
+        
+        // 测试事件冒泡
+        document.getElementById('test-events').addEventListener('click', () => {
+            addStatus(eventStatusEl, '测试事件冒泡...');
+            
+            // 创建测试元素
+            const testDiv = document.createElement('div');
+            testDiv.style.padding = '20px';
+            testDiv.style.backgroundColor = '#f0f0f0';
+            testDiv.style.margin = '10px 0';
+            
+            const childButton = document.createElement('button');
+            childButton.className = 'btn btn-primary';
+            childButton.textContent = '子元素按钮';
+            
+            testDiv.appendChild(childButton);
+            eventStatusEl.insertBefore(testDiv, eventStatusEl.firstChild);
+            
+            // 绑定事件
+            testDiv.addEventListener('click', () => {
+                addStatus(eventStatusEl, '父元素事件触发', 'info');
+            });
+            
+            childButton.addEventListener('click', (e) => {
+                addStatus(eventStatusEl, '子元素事件触发', 'success');
+                e.stopPropagation(); // 阻止冒泡
+            });
+            
+            addStatus(eventStatusEl, '事件冒泡测试已设置，请点击按钮测试', 'info');
+        });
+        
+        // 运行诊断
+        document.getElementById('run-diagnostics').addEventListener('click', async () => {
+            addStatus(reportStatusEl, '开始运行诊断...');
+            
+            try {
+                // 检查浏览器信息
+                const userAgent = navigator.userAgent;
+                addStatus(reportStatusEl, `浏览器: ${userAgent}`);
+                
+                // 检查Service Worker支持
+                const swSupported = 'serviceWorker' in navigator;
+                addStatus(reportStatusEl, `Service Worker支持: ${swSupported ? '是' : '否'}`);
+                
+                // 检查已注册的Service Worker
+                let swRegistrations = [];
+                if (swSupported) {
+                    swRegistrations = await navigator.serviceWorker.getRegistrations();
+                    addStatus(reportStatusEl, `已注册Service Worker: ${swRegistrations.length}个`);
+                }
+                
+                // 检查缓存
+                const cacheNames = await caches.keys();
+                addStatus(reportStatusEl, `缓存: ${cacheNames.length}个 (${cacheNames.join(', ')})`);
+                
+                // 检查localStorage
+                const lsCount = Object.keys(localStorage).length;
+                addStatus(reportStatusEl, `localStorage项: ${lsCount}个`);
+                
+                // 检查CSS样式
+                const styles = document.styleSheets;
+                addStatus(reportStatusEl, `样式表: ${styles.length}个`);
+                
+                // 检查按钮数量
+                const buttons = document.querySelectorAll('button');
+                addStatus(reportStatusEl, `按钮: ${buttons.length}个`);
+                
+                // 诊断汇总
+                addStatus(reportStatusEl, '诊断完成', 'success');
+            } catch (error) {
+                addStatus(reportStatusEl, `诊断过程出错: ${error.message}`, 'error');
+            }
+        });
+        
+        // 导出报告
+        document.getElementById('export-report').addEventListener('click', () => {
+            try {
+                const report = {
+                    userAgent: navigator.userAgent,
+                    dateTime: new Date().toISOString(),
+                    url: window.location.href,
+                    screenSize: `${window.innerWidth}x${window.innerHeight}`,
+                    errors: reportStatusEl.innerHTML
+                };
+                
+                const blob = new Blob([JSON.stringify(report, null, 2)], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `debug-report-${new Date().toISOString().slice(0, 10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                
+                // 清理
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                
+                addStatus(reportStatusEl, '报告已导出', 'success');
+            } catch (error) {
+                addStatus(reportStatusEl, `导出报告失败: ${error.message}`, 'error');
+            }
+        });
+        
+        // 页面加载完成
+        window.addEventListener('load', () => {
+            addStatus(reportStatusEl, '页面加载完成');
+            
+            // URL参数处理
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('auto-diagnose')) {
+                document.getElementById('run-diagnostics').click();
+            }
+        });
+    </script>
+</body>
+</html> 
